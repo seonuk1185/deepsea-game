@@ -217,7 +217,7 @@
     h += box(0, bx0, lim.top, lim.bottom, 'limzone') + box(bx1, 100, lim.top, lim.bottom, 'limzone');
     // 상자가 판 끝에 딱 붙어 있으면(limit.left = 0) 그쪽 테두리를 판 안쪽으로 들여 그려서 잘리지 않게
     h += box(bx0, bx1, lim.top, lim.bottom, 'limbox' + (bx0 <= 0 ? ' edge-l' : '') + (bx1 >= 100 ? ' edge-r' : ''));
-    h += '<span class="limtag" style="' + (L ? 'right:6px' : 'left:6px') + '">' + ch.name + ' 한계</span>';
+    // (「○○ 한계」 글씨는 형님 지시로 뺌 2026-10-27)
 
     // 곡선 (파란 선. pad.js 가 점을 끌 때마다 drawPadCurve 로 다시 그림. 판 밖으로 나간 부분은 잘림)
     h += '<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path id="padCurve" d="" ' +
