@@ -34,7 +34,7 @@
   <div class="hud">
     <button class="menu press" id="btnPause" aria-label="일시정지"><span>Ⅱ</span></button>
     <div class="chat" id="chat" hidden><p><b>상어대장</b>그 각도로 맞출 수 있겠어? ㅋㅋ</p></div>
-    <!-- 아이템 4칸 (바다 왼쪽 위 가로 한 줄) — main.js가 채움 -->
+    <!-- 아이템 4칸 (계기판 시간·DELAY 칸 바로 위 가로 한 줄) — main.js가 채움 -->
     <div class="items" id="items"></div>
     <div class="mapname" id="mapName">심해 유적</div>
     <!-- 이동 조이스틱: 손잡이를 끄는 방향으로 내 잠수함이 움직임 (move.js) -->
@@ -50,7 +50,7 @@
       <div class="lcd small"><em>DELAY</em><span id="delayNum">0000</span></div>
     </div>
 
-    <!-- C. 궤도 판 (초록 점 화면) + 아래 거리 눈금 — 내용은 main.js가 그림, 점 끌기는 pad.js
+    <!-- C. 궤도 판 (초록 점 화면) + 판 안 맨 아래에 겹친 거리 눈금 — 내용은 main.js가 그림, 점 끌기는 pad.js
          계기판 가운데만 위로 솟은 칸 (양옆보다 --dash-rise 만큼 높음 → 판 세로가 넓어짐)
          오른쪽 옆 좁은 띠 = ▲▼ 미세조정 (골라 둔 점을 한 칸씩. 잠수함이 돌아봐도 늘 오른쪽 = 엄지 자리) -->
     <div class="mod pad">

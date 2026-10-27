@@ -173,7 +173,7 @@
     $('delayNum').textContent = '--';      // 아직 거리를 안 정함 (발사 꾹 누르고 떼면 숫자가 들어감)
     $('mapName').textContent = C.mapName;
 
-    // 아이템 4칸 (바다 왼쪽 위 가로 한 줄)
+    // 아이템 4칸 (계기판 시간·DELAY 칸 바로 위 가로 한 줄)
     $('items').innerHTML = C.items.map(function (it) {
       if (!it.type) return '<button class="slot" aria-label="빈 칸"></button>';
       return '<button class="slot full' + (it.selected ? ' sel' : '') + '" aria-label="' + ITEM_NAMES[it.type] + '">' +
@@ -237,7 +237,7 @@
     drawPadCurve();
     setFireGauge(state.pad.fill);
 
-    // 아래 거리 눈금 — 잠수함 쪽 끝 = 0. 1칸마다 작은 금, 3칸마다 큰 금 + 숫자 3, 6, 9 … 39 (판 모눈 세로줄과 같은 자리)
+    // 거리 눈금 (판 안 맨 아래에 겹친 띠) — 잠수함 쪽 끝 = 0. 1칸마다 작은 금, 3칸마다 큰 금 + 숫자 3, 6, 9 … 39 (판 모눈 세로줄과 같은 자리)
     var s = '';
     for (var u = 1; u < P.span; u++) {
       var big = u % P.labelEvery === 0;
@@ -316,7 +316,7 @@
     b.style.left = L ? 'calc(100% - ' + (v * 100).toFixed(2) + '%)' : (v * 100).toFixed(2) + '%';
   }
 
-  // 게이지 찬 정도(0~1) → 거리 칸 (0 = 잠수함 쪽 끝, 1 = 최대 거리 limit.right). 판 아래 눈금 숫자와 그대로 같음
+  // 게이지 찬 정도(0~1) → 거리 칸 (0 = 잠수함 쪽 끝, 1 = 최대 거리 limit.right). 판 안 눈금 숫자와 그대로 같음
   function gaugeToDistance(v) {
     return v * C.character.limit.right;
   }

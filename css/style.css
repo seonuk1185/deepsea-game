@@ -33,16 +33,17 @@
   --text-halo: 0 0 3px #000, 0 1px 2px #000;
 
   /* 화면 틀 크기 */
-  --dash-h:112px;          /* 계기판 양옆 높이 (폰 112, 태블릿 148) */
-  --dash-rise:40px;        /* 계기판 가운데(궤도 판 칸)만 양옆보다 이만큼 위로 솟음 → 판 세로가 넓어짐 (폰 40, 태블릿 28) */
+  --dash-h:88px;           /* 계기판 양옆 높이 (폰 88, 태블릿 124) — 10차: 112 → 88 로 낮춤 */
+  --dash-rise:34px;        /* 계기판 가운데(궤도 판 칸)만 양옆보다 이만큼 위로 솟음 → 판 세로가 넓어짐 (폰 34, 태블릿 28) */
   --joy-size:96px;         /* 조이스틱 지름 */
+  --item-size:30px;        /* 아이템 동그라미 지름 (폰 30, 태블릿 40) */
   --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
   --safe-t:env(safe-area-inset-top,0px);  --safe-b:env(safe-area-inset-bottom,0px);
 
   /* main.js가 넣어 주는 값: 카메라 배율의 반대 (이름표를 늘 같은 크기로) */
   --inv-zoom:1;
 }
-@media (min-height:600px){ :root{ --dash-h:148px; --dash-rise:28px; --joy-size:112px; } }
+@media (min-height:600px){ :root{ --dash-h:124px; --dash-rise:28px; --joy-size:112px; --item-size:40px; } }
 
 /* ===== 기본: 스크롤·확대·글자선택·길게누르기 메뉴 막기 ===== */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -91,13 +92,13 @@ button{font:inherit;color:inherit;cursor:pointer}
 .menu span{width:32px;height:32px;border-radius:var(--r-m);background:rgba(7,26,43,.85);border:1px solid #4E6375;
   color:var(--c-text);font:16px/30px var(--f-ui);text-align:center}
 .menu:active span{background:#1B2329}
-.chat{position:absolute;left:calc(var(--s3) + var(--safe-l));top:calc(var(--s3) + 50px + var(--safe-t));   /* 아이템 줄 밑 */max-width:60%;font-size:13px;line-height:18px;
+.chat{position:absolute;left:calc(var(--s3) + var(--safe-l));top:calc(var(--s3) + var(--safe-t));max-width:60%;font-size:13px;line-height:18px;
   text-shadow:var(--text-halo);pointer-events:none}
 .chat p b{color:var(--c-enemy);font-weight:700;margin-right:6px}
 .mapname{position:absolute;left:50%;transform:translateX(-50%);bottom:6px;font:13px var(--f-ui);pointer-events:none;
   padding:3px 8px;border-radius:var(--r-s);background:rgba(4,12,20,.7);color:var(--c-text-2);white-space:nowrap}
-/* 이동 조이스틱: 왼쪽 아래 희미한 동그라미 */
-.joy{position:absolute;left:calc(16px + var(--safe-l));bottom:12px;width:var(--joy-size);height:var(--joy-size);border-radius:50%;
+/* 이동 조이스틱: 왼쪽 아래 희미한 동그라미. 바로 밑에 아이템 줄(시간 칸 위)이 있어서 그 위로 띄움 (아이템 높이 + 14px) */
+.joy{position:absolute;left:calc(16px + var(--safe-l));bottom:calc(var(--item-size) + 14px);width:var(--joy-size);height:var(--joy-size);border-radius:50%;
   border:2px solid rgba(255,255,255,.28);background:rgba(255,255,255,.07)}
 .joy i{position:absolute;left:50%;top:50%;width:42px;height:42px;margin:-21px 0 0 -21px;border-radius:50%;
   background:rgba(255,255,255,.22);border:2px solid rgba(255,255,255,.4)}
@@ -109,7 +110,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 /* ===== 아래 금속 계기판 ===== */
 /* z-index:1 = 계기판을 따로 한 겹으로 → 솟은 칸 금속판(.pad::before)이 계기판 바탕 위·부품 아래에 깔림 */
 .dash{position:absolute;left:0;right:0;bottom:0;height:var(--dash-h);display:flex;gap:6px;align-items:stretch;z-index:1;
-  padding:8px calc(8px + var(--safe-r)) calc(8px + var(--safe-b)) calc(8px + var(--safe-l));
+  padding:5px calc(8px + var(--safe-r)) calc(5px + var(--safe-b)) calc(8px + var(--safe-l));   /* 위아래 여백 8 → 5 (10차) */
   background:linear-gradient(180deg,var(--metal-hi) 0,var(--metal) 8%,var(--metal-mid) 55%,var(--metal-lo) 100%);
   border-top:2px solid #DDE4E8;box-shadow:0 -3px 8px rgba(0,0,0,.55)}
 /* 금속 결 */
@@ -125,32 +126,35 @@ button{font:inherit;color:inherit;cursor:pointer}
 .lbl{font:12px/1 var(--f-ui);color:var(--engrave);text-shadow:0 1px 0 rgba(255,255,255,.35);letter-spacing:.5px}
 
 /* A. 시간 + DELAY */
-.timer{width:84px;display:flex;flex-direction:column;gap:4px}
+.timer{width:84px;display:flex;flex-direction:column;gap:3px}
 .lcd{background:var(--lcd-bg);border-radius:var(--r-m);box-shadow:var(--sh-inset);position:relative;display:flex;align-items:center;justify-content:center}
 .lcd.big{flex:1;min-height:0}
-.lcd.big span,.lcd.big s{font:900 38px/1 var(--f-led);color:var(--lcd-on);text-shadow:0 0 6px rgba(124,255,158,.6)}
+.lcd.big span,.lcd.big s{font:900 32px/1 var(--f-led);color:var(--lcd-on);text-shadow:0 0 6px rgba(124,255,158,.6)}
 .lcd.big s{position:absolute;color:var(--lcd-ghost);text-shadow:none;text-decoration:none}
-.lcd.small{height:26px;flex:none;justify-content:space-between;padding:0 5px;gap:4px}
+.lcd.small{height:22px;flex:none;justify-content:space-between;padding:0 5px;gap:4px}
 .lcd.small em{font:12px/1 var(--f-ui);font-style:normal;color:#FF9B9B}
 .lcd.small span{font:700 12px/1 var(--f-led);color:var(--delay)}
 
-/* B. 아이템 4칸 — 바다 왼쪽 위에 가로 한 줄 (계기판에서 빼냄. 오른쪽 위 일시정지와 안 겹침) */
-.items{position:absolute;left:calc(10px + var(--safe-l));top:calc(8px + var(--safe-t));display:flex;gap:10px}
-.slot{width:38px;height:38px;border:0;border-radius:var(--r-full);position:relative;
+/* B. 아이템 4칸 — 계기판 왼쪽 끝(시간·DELAY 칸) 바로 위에 가로 한 줄 (10차: 바다 왼쪽 위 → 여기로).
+   줄이 시간 칸보다 넓어서, 옆에 솟은 궤도 판과 안 겹치게 솟은 칸 높이 바로 위에 둠. 조이스틱은 이 줄 위로 띄움 */
+.items{position:absolute;left:calc(8px + var(--safe-l));bottom:4px;display:flex;gap:6px}
+.slot{width:var(--item-size);height:var(--item-size);border:0;border-radius:var(--r-full);position:relative;
   background:radial-gradient(circle at 50% 40%,#3a454d,#151b20 70%);
   box-shadow:0 0 0 3px #B7C1C7,0 0 0 4px #3B454C,var(--sh-inset),0 2px 6px 3px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
 .slot:not(.full){opacity:.8}
 .slot.full{background:radial-gradient(circle at 50% 35%,#FFB27A,#C4521A 75%)}
 .slot.sel{box-shadow:0 0 0 3px var(--c-warn),0 0 0 5px #3B454C,0 0 10px var(--c-warn)}
 .slot.full:active{filter:brightness(.8)}
-.slot svg{width:22px;height:22px}
-.slot i{position:absolute;right:-4px;bottom:-4px;min-width:16px;height:16px;border-radius:var(--r-full);background:var(--engrave);
-  color:var(--c-text);font:11px/14px var(--f-ui);font-style:normal;text-align:center;border:1px solid #9AA6AE}
+.slot svg{width:18px;height:18px}
+.slot i{position:absolute;right:-4px;bottom:-4px;min-width:14px;height:14px;border-radius:var(--r-full);background:var(--engrave);
+  color:var(--c-text);font:10px/12px var(--f-ui);font-style:normal;text-align:center;border:1px solid #9AA6AE}
 
-/* C. 궤도 판 — 계기판 가운데만 위로 솟은 칸: 위 여백을 --dash-rise 만큼 당겨서 양옆 부품보다 높게 */
-.pad{flex:1 1 auto;min-width:150px;padding:5px 5px 2px;display:flex;gap:4px;margin-top:calc(-1 * var(--dash-rise))}
-/* 솟은 부분 금속판: 계기판과 같은 금속 + 위 밝은 테두리 + 위로 그림자. 아래쪽은 계기판 속으로 12px 겹쳐 이음매가 안 보이게 */
-.pad::before{content:"";position:absolute;z-index:-1;left:-6px;right:-6px;top:-10px;height:calc(var(--dash-rise) + 12px);
+/* C. 궤도 판 — 계기판 가운데만 위로 솟은 칸: 위 여백을 --dash-rise 만큼 당겨서 양옆 부품보다 높게
+   (10차: 판 둘레 여백·▲▼ 사이 틈을 줄이고 거리 눈금을 판 안으로 넣어서, 계기판은 낮아져도 판 세로는 거의 그대로) */
+.pad{flex:1 1 auto;min-width:150px;padding:2px 3px 0;display:flex;gap:3px;margin-top:calc(-1 * var(--dash-rise))}
+/* 솟은 부분 금속판: 계기판과 같은 금속 + 위 밝은 테두리 + 위로 그림자. 아래쪽은 계기판 속으로 12px 겹쳐 이음매가 안 보이게
+   top -7px = 계기판 위 테두리 2 + 위 여백 5 → 금속판 맨 위 = 계기판 양옆 높이 + 솟은 높이 */
+.pad::before{content:"";position:absolute;z-index:-1;left:-6px;right:-6px;top:-7px;height:calc(var(--dash-rise) + 12px);
   border-radius:14px 14px 0 0;border-top:2px solid #DDE4E8;
   background:repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 1px,transparent 1px 3px),
     linear-gradient(180deg,var(--metal-hi) 0,var(--metal) 10px,var(--metal) 100%);
@@ -158,10 +162,10 @@ button{font:inherit;color:inherit;cursor:pointer}
 /* 턴 시작 번쩍: 솟은 칸 테두리도 같이 */
 .dash.turnflash .pad::before{animation:bumpflash .45s ease-in-out 3}
 @keyframes bumpflash{50%{border-top-color:var(--c-hp);box-shadow:0 -3px 8px rgba(0,0,0,.55),inset 0 3px 12px rgba(255,210,63,.75)}}
-.padmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-/* ▲▼ 미세조정 띠 (판 오른쪽 옆, 폭 30px). 보이는 버튼은 작아도 손가락 닿는 범위는 위아래 44px 이상 (::after) */
-.nudge{width:30px;flex:none;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;padding:0 0 3px;gap:2px}
-.nbtn{position:relative;flex:1;min-height:30px;max-height:40px;border:0;border-radius:var(--r-s);font:12px/1 var(--f-ui);color:var(--c-warn);
+.padmain{position:relative;flex:1;min-width:0;display:flex;flex-direction:column}
+/* ▲▼ 미세조정 띠 (판 오른쪽 옆, 폭 28px). 보이는 버튼은 작아도 손가락 닿는 범위는 위아래 44px 이상 (::after) */
+.nudge{width:28px;flex:none;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;gap:2px}
+.nbtn{position:relative;flex:1;min-height:32px;max-height:44px;border:0;border-radius:var(--r-s);font:12px/1 var(--f-ui);color:var(--c-warn);
   background:linear-gradient(#3A454D,#1F282E);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 2px 0 #11171B;touch-action:none}
 .nbtn::after{content:"";position:absolute;left:-4px;right:-5px;top:-6px;bottom:-6px}
 .nbtn:active,.nbtn.held{background:var(--engrave);transform:translateY(1px);box-shadow:inset 0 0 6px rgba(255,197,61,.5)}
@@ -209,31 +213,34 @@ button{font:inherit;color:inherit;cursor:pointer}
   box-shadow:0 0 0 1px var(--c-warn),0 0 0 3px rgba(255,197,61,.35),0 0 8px 1px rgba(255,197,61,.8)}
 .cp.sel.held{box-shadow:0 0 0 1px #fff,0 0 0 3px rgba(255,197,61,.5),0 0 10px 2px var(--c-warn)}
 .screen{touch-action:none}
-/* 거리 눈금 (판 아래 금속 위 새김): 1칸마다 작은 금, 3칸마다 큰 금 + 숫자. 판이 좁으면(.tight) 숫자 글씨만 작게 */
-.scale{position:relative;height:15px;flex:none}
-.scale .tick{position:absolute;top:0;width:1px;height:3px;background:var(--engrave)}
-.scale .tick.major{height:4px;width:2px;margin-left:-1px}
-.scale .num{position:absolute;top:4px;transform:translateX(-50%);font:11px/1 var(--f-ui);color:var(--engrave);
-  text-shadow:0 1px 0 rgba(255,255,255,.35)}
-.scale.tight .num{font-size:8px;top:4px;letter-spacing:-.4px}
+/* 거리 눈금 (10차: 판 아래 금속 → 판 안 맨 아래 띠로 옮김). 판(.screen) 위에 겹쳐 놓은 투명 띠라 손가락은 그대로 판에 닿음.
+   1칸마다 작은 금, 3칸마다 큰 금 + 숫자 (금은 판 맨 아래, 숫자는 그 바로 위). 판이 좁으면(.tight) 숫자 글씨만 작게.
+   자리는 main.js buildPad 가 % 로 넣음 → 잠수함이 왼쪽을 보면 숫자 자리도 같이 뒤집힘 */
+.scale{position:absolute;left:0;right:0;bottom:0;height:13px;z-index:2;pointer-events:none;border-radius:0 0 var(--r-m) var(--r-m);
+  background:linear-gradient(rgba(4,12,8,0),rgba(4,12,8,.6) 45%)}
+.scale .tick{position:absolute;bottom:0;width:1px;height:2px;background:rgba(200,247,210,.55)}
+.scale .tick.major{height:3px;width:2px;margin-left:-1px;background:rgba(200,247,210,.85)}
+.scale .num{position:absolute;bottom:3px;transform:translateX(-50%);font:9px/1 var(--f-ui);color:var(--dot-bright);
+  text-shadow:0 0 2px #000,0 0 3px #000,0 1px 1px #000}
+.scale.tight .num{font-size:8px;letter-spacing:-.4px}
 
 /* C-2. 조류 + 다시 */
-.flowm{width:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px}
-.flowbox{width:48px;height:44px;border-radius:var(--r-m);background:var(--lcd-bg);box-shadow:var(--sh-inset);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.flowm{width:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:3px}
+.flowbox{width:48px;height:36px;border-radius:var(--r-m);background:var(--lcd-bg);box-shadow:var(--sh-inset);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
 /* 윗줄: 화살표(정사각형이라 위아래로 돌려도 크기 그대로) + 큰 단계 숫자 */
 .flowtop{display:flex;align-items:center;justify-content:center;gap:3px}
-.flowbox svg{width:18px;height:18px;transition:transform .3s}
-.flowtop b{font:900 18px/1 var(--f-led);color:var(--flow-2);text-shadow:0 0 5px rgba(159,227,255,.6)}
+.flowbox svg{width:16px;height:16px;transition:transform .3s}
+.flowtop b{font:900 16px/1 var(--f-led);color:var(--flow-2);text-shadow:0 0 5px rgba(159,227,255,.6)}
 /* 아랫줄: 세기 5칸 막대 (단계만큼 불이 들어옴) */
 .flowsegs{display:flex;gap:2px}
 .flowsegs i{width:6px;height:6px;border-radius:1px;background:#16222A;border:1px solid #2B3A44}
 .flowsegs i.on{background:linear-gradient(var(--flow-2),var(--flow-1));border-color:var(--flow-2)}
-.rbtn{width:44px;height:40px;border:0;border-radius:var(--r-m);font:20px/40px var(--f-ui);color:var(--c-text);
+.rbtn{width:44px;height:34px;border:0;border-radius:var(--r-m);font:19px/34px var(--f-ui);color:var(--c-text);
   background:radial-gradient(circle at 50% 35%,#5C6973,#1F282E 80%);box-shadow:0 0 0 3px #B7C1C7,0 0 0 4px #3B454C,0 3px 4px rgba(0,0,0,.5)}
 .rbtn:active{background:#1B2329;transform:translateY(1px)}
 
 /* D. 이동 + 에너지 세로 게이지 (서 있는 통 2개, 아래에서 위로 참 — 4단계 설계서 원래 모양) */
-.gauges{width:80px;display:flex;justify-content:center;gap:6px;padding:6px 4px}
+.gauges{width:80px;display:flex;justify-content:center;gap:6px;padding:4px}
 .g{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px}
 .gtop{height:12px;display:flex;align-items:center;font:12px/1 var(--f-ui);color:var(--engrave);text-shadow:0 1px 0 rgba(255,255,255,.35)}
 .arrow{width:20px;height:12px}
@@ -246,19 +253,19 @@ button{font:inherit;color:inherit;cursor:pointer}
 .g .lbl{white-space:nowrap}
 
 /* E. 내 잠수함 얼굴 창 */
-.face{width:84px;display:flex;flex-direction:column;align-items:center;gap:4px}
+.face{width:84px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 6px 4px}
 .win{flex:1;min-height:0;width:100%;border-radius:var(--r-m);background:radial-gradient(circle at 50% 45%,#1E5C80,#08243A 75%);box-shadow:var(--sh-inset);
   display:flex;align-items:center;justify-content:center;overflow:hidden}
-.win svg{width:64px;height:40px}
+.win svg{width:58px;height:36px}
 
-/* F. 발사 / 턴 넘기기 (형님 지시로 작게: 발사 40px, 턴 넘기기 34px, 칸 가운데 정렬) */
-.act{width:84px;flex:none;display:flex;flex-direction:column;justify-content:center;gap:6px}
+/* F. 발사 / 턴 넘기기 (형님 지시로 작게: 발사 36px, 턴 넘기기 32px, 칸 가운데 정렬) */
+.act{width:84px;flex:none;display:flex;flex-direction:column;justify-content:center;gap:5px}
 .btn{border:0;border-radius:var(--r-m);font-family:var(--f-ui)}
-.fire{height:40px;flex:none;background:linear-gradient(#FF9A5C,var(--c-main) 55%,#E45F16);color:var(--c-main-ink);font-size:20px;
+.fire{height:36px;flex:none;background:linear-gradient(#FF9A5C,var(--c-main) 55%,#E45F16);color:var(--c-main-ink);font-size:20px;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 3px 0 #8A3208,0 4px 6px rgba(0,0,0,.4)}
 .fire:active,.fire.held{transform:translateY(3px);box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
 .fire{touch-action:none}
-.skip{height:34px;flex:none;background:linear-gradient(#4A565F,var(--bezel));color:var(--c-text);font-size:14px;white-space:nowrap;
+.skip{height:32px;flex:none;background:linear-gradient(#4A565F,var(--bezel));color:var(--c-text);font-size:14px;white-space:nowrap;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 2px 0 #11171B}
 .skip:active{background:var(--engrave);transform:translateY(2px);box-shadow:none}
 
@@ -316,18 +323,18 @@ button{font:inherit;color:inherit;cursor:pointer}
 
 /* ===== 태블릿·PC (높이 600px 이상): 계기판 부품 1.25배 ===== */
 @media (min-height:600px) and (orientation:landscape){
-  .timer{width:104px} .lcd.big span,.lcd.big s{font-size:52px} .lcd.small{height:32px} .lcd.small em,.lcd.small span{font-size:14px}
-  .items{gap:12px} .slot{width:46px;height:46px} .slot svg{width:28px;height:28px}
-  .flowm{width:72px;gap:6px} .flowbox{width:60px;height:56px} .flowbox svg{width:24px;height:24px} .flowtop b{font-size:24px}
+  .timer{width:104px} .lcd.big span,.lcd.big s{font-size:48px} .lcd.small{height:30px} .lcd.small em,.lcd.small span{font-size:14px}
+  .items{gap:10px} .slot svg{width:24px;height:24px}
+  .flowm{width:72px;gap:5px} .flowbox{width:60px;height:50px} .flowbox svg{width:24px;height:24px} .flowtop b{font-size:24px}
   .flowsegs i{width:8px;height:8px}
-  .rbtn{width:56px;height:52px;font-size:26px;line-height:52px}
+  .rbtn{width:56px;height:46px;font-size:24px;line-height:46px}
   .gauges{width:100px} .tube{width:22px} .gtop{height:14px;font-size:14px}
   .face{width:108px} .win svg{width:84px;height:52px}
-  .act{width:112px} .fire{height:52px;font-size:26px} .skip{height:42px;font-size:17px}
-  .lbl{font-size:14px} .scale{height:18px} .scale .num{font-size:13px}
-  .nudge{width:40px} .nbtn{max-height:52px;font-size:16px} .ntag{font-size:13px;line-height:14px}
+  .act{width:112px} .fire{height:50px;font-size:26px} .skip{height:40px;font-size:17px}
+  .lbl{font-size:14px} .scale{height:17px} .scale .num{font-size:12px;bottom:4px} .scale .tick{height:3px} .scale .tick.major{height:4px}
+  .nudge{width:38px} .nbtn{max-height:56px;font-size:16px} .ntag{font-size:13px;line-height:14px}
   .menu{width:52px;height:52px} .menu span{width:40px;height:40px;line-height:38px;font-size:18px}
-  .mapname{font-size:15px} .chat{font-size:15px;line-height:22px;top:calc(var(--s3) + 58px + var(--safe-t))}
+  .mapname{font-size:15px} .chat{font-size:15px;line-height:22px}
 }
 /* 아주 큰 PC 화면: 가운데 1600×900 상자 안에 */
 @media (min-width:1601px) and (min-height:901px){
