@@ -298,8 +298,8 @@
       el.style.top = p[1] + '%';
       el.classList.toggle('sel', +el.getAttribute('data-i') === state.pad.sel);   // 골라 둔 점 = 노란 빛 테두리
     });
-    var tag = $('nudgeTag');                                     // ▲▼ 사이 작은 글씨 「점2」
-    if (tag) tag.textContent = '점' + (state.pad.sel + 1);
+    var tag = $('nudgeTag');                                     // ▲▼ 사이 작은 글씨 「핀2」 (조준핀 = 궤도 점)
+    if (tag) tag.textContent = '핀' + (state.pad.sel + 1);
   }
 
   // 거리 게이지 (0~1, 1 = 거리 한계선까지 꽉). 흰 표시 = 멈춘 자리
