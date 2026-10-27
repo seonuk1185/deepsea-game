@@ -1,7 +1,8 @@
 /* =========================================================
    심해 포격전(가칭) — 궤도 판 점 끌기
    1) 점 3개를 손가락으로 잡고 위아래로 끌면 점이 따라오고 곡선이 바로 다시 그려짐
-      (가로 자리는 고정, 세로는 노란 위·아래 한계선 안에서만. 곡선은 한계선 밖으로 나갈 수 있음)
+      (가로 자리는 캐릭터마다 고정, 세로는 노란 상자 위·아래 변 안에서만.
+       곡선은 점 3개를 정확히 지나고, 상자 밖으로 나갈 수 있음)
    2) ↺(다시) 버튼: 점을 캐릭터 기본 모양으로 되돌림
    조이스틱을 누른 채 다른 손가락으로 점을 끌어도 됨. 판 위에서 끌어도 바다 화면은 안 움직임
    main.js 다음에 불러야 함 (window.Game 을 씀)
@@ -45,9 +46,9 @@
 
   screen.addEventListener('pointermove', function (e) {
     if (!drag || e.pointerId !== drag.id) return;
-    var r = screen.getBoundingClientRect(), ch = C.character;
+    var r = screen.getBoundingClientRect(), lim = C.character.limit;
     var y = (e.clientY - drag.dy - r.top) / r.height * 100;
-    y = Math.min(Math.max(y, ch.angleTop), ch.angleBottom);   // 위·아래 한계선 안에 가둠
+    y = Math.min(Math.max(y, lim.top), lim.bottom);            // 노란 상자 위·아래 변 안에 가둠
     G.state.pad.points[drag.i][1] = y;
     G.drawPadCurve();
     setHeld(drag.i, true);                                     // 잠수함이 돌아봐서 판을 새로 그렸어도 잡은 표시 유지
@@ -64,7 +65,7 @@
 
   /* ---------- ↺ 다시: 캐릭터 기본 모양으로 ---------- */
   document.getElementById('btnPadReset').addEventListener('click', function () {
-    G.state.pad.points = G.copyPoints(C.character.padPoints);
+    G.state.pad.points = G.defaultPoints();
     if (drag) { drag = null; }
     G.drawPadCurve();
   });

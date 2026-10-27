@@ -51,7 +51,7 @@
     G.state.shot = {
       gauge: v,
       distance: dist,
-      worldX: v * C.character.maxDist / 100 * C.world.w     // 판 = 맵 전체를 줄인 것 → 맵 가로 거리로
+      worldX: v * C.character.limit.right / 100 * C.world.w     // 판 = 맵 전체를 줄인 것 → 맵 가로 거리로
     };
     delayNum.textContent = Math.round(dist);
     console.log('[발사 거리 결정]', G.state.shot);

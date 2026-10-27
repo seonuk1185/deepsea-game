@@ -16,9 +16,17 @@
     subs: C.subs.map(function (s) { var o = {}; for (var k in s) o[k] = s[k]; return o; }),
     move: C.movement.gaugeStart,     // 이동 게이지 (0~1)
     // 궤도 판: 조절점 3개 [가로%, 세로%] (캐릭터 기본 모양에서 시작) + 거리 게이지 찬 정도 (0~1)
-    pad: { points: copyPoints(C.character.padPoints), fill: 0, facing: 'right' }
+    pad: { points: defaultPoints(), fill: 0, facing: 'right' }
   };
   function copyPoints(list) { return list.map(function (p) { return [p[0], p[1]]; }); }
+  // 캐릭터 기본 점 모양 (설정값이 노란 상자 밖이면 상자 안으로 넣어서)
+  function defaultPoints() {
+    var lim = C.character.limit;
+    return C.character.padPoints.map(function (p) {
+      return [clamp(p[0], lim.left, lim.right), clamp(p[1], lim.top, lim.bottom)];
+    });
+  }
+  function clamp(v, a, b) { return Math.min(Math.max(v, a), b); }
   function getSub(id) { return state.subs.filter(function (v) { return v.id === id; })[0]; }
 
   var seaView = $('seaView'), world = $('world'), worldBg = $('worldBg'), worldThings = $('worldThings');
@@ -171,9 +179,7 @@
         ITEM_ICONS[it.type] + '<i>' + it.count + '</i></button>';
     }).join('');
 
-    // 조류: 화살표 방향 + 세기 막대
-    $('flowArrow').style.transform = 'rotate(' + C.current.dir + 'deg)';
-    $('flowBar').style.width = Math.round(C.current.strength * 100) + '%';
+    setCurrent(C.current.dir, C.current.strength);
 
     // 이동 / 에너지
     setMoveGauge(state.move);
@@ -196,27 +202,30 @@
   function buildPad(facing) {
     state.pad.facing = facing;
     var L = facing === 'left', fx = padFx;
-    var ch = C.character, P = C.pad, h = '';
+    var ch = C.character, lim = ch.limit, P = C.pad, h = '';
+    var box = function (l, r, t, b, cls) {   // 판 % 좌표로 네모 하나
+      return '<span class="' + cls + '" style="left:' + l + '%;width:' + (r - l) + '%;top:' + t + '%;height:' + (b - t) + '%"></span>';
+    };
 
-    // 곡선 (pad.js 가 점을 끌 때마다 drawPadCurve 로 다시 그림)
-    h += '<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path id="padCurve" d="" ' +
-      'fill="none" stroke="#58F07A" stroke-width="3" vector-effect="non-scaling-stroke"/></svg>';
+    // 점이 있는 세로 줄 (점선) — 점의 가로 자리는 캐릭터마다 고정
+    state.pad.points.forEach(function (p) { h += '<span class="pcol" style="left:' + fx(p[0]) + '%"></span>'; });
 
-    // 거리 게이지 (가운데 주황 막대): 잠수함 쪽 끝에 붙어서 시작, 거리 한계선까지만
-    var gStyle = L ? 'right:0;left:' + (100 - ch.maxDist) + '%' : 'left:0;right:' + (100 - ch.maxDist) + '%';
-    h += '<div class="fgauge' + (L ? ' rtl' : '') + '" id="fGauge" style="' + gStyle + '" aria-hidden="true"><i></i><b></b></div>';
-
-    // 한계선: 위·아래 = 발사 각도, 세로 = 최대 거리. 바깥은 어둡게. (조절점에만 적용)
-    h += '<span class="limzone" style="left:0;right:0;top:0;height:' + ch.angleTop + '%"></span>';
-    h += '<span class="limzone" style="left:0;right:0;top:' + ch.angleBottom + '%;bottom:0"></span>';
-    h += L ? '<span class="limzone" style="left:0;width:' + (100 - ch.maxDist) + '%;top:0;bottom:0"></span>'
-           : '<span class="limzone" style="left:' + ch.maxDist + '%;right:0;top:0;bottom:0"></span>';
-    h += '<span class="lim" style="top:' + ch.angleTop + '%"></span>';
-    h += '<span class="lim" style="top:' + ch.angleBottom + '%"></span>';
-    h += '<span class="limv" style="left:' + fx(ch.maxDist) + '%"></span>';
+    // 노란 한계 상자 (4면) + 바깥 어둡게. 위·아래 = 발사 각도, 왼쪽 = 최소 거리, 오른쪽 = 최대 거리
+    var bx0 = Math.min(fx(lim.left), fx(lim.right)), bx1 = Math.max(fx(lim.left), fx(lim.right));
+    h += box(0, 100, 0, lim.top, 'limzone') + box(0, 100, lim.bottom, 100, 'limzone');
+    h += box(0, bx0, lim.top, lim.bottom, 'limzone') + box(bx1, 100, lim.top, lim.bottom, 'limzone');
+    h += box(bx0, bx1, lim.top, lim.bottom, 'limbox');
     h += '<span class="limtag" style="' + (L ? 'right:6px' : 'left:6px') + '">' + ch.name + ' 한계</span>';
 
-    // 조절점 3개 (위치는 drawPadCurve 가 넣음)
+    // 곡선 (파란 선. pad.js 가 점을 끌 때마다 drawPadCurve 로 다시 그림. 판 밖으로 나간 부분은 잘림)
+    h += '<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path id="padCurve" d="" ' +
+      'fill="none" stroke="#4FB6FF" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>';
+
+    // 거리 게이지 (가운데 주황 막대): 잠수함 쪽 끝에 붙어서 시작, 상자 오른쪽 변(최대 거리)까지만
+    var gStyle = L ? 'right:0;left:' + (100 - lim.right) + '%' : 'left:0;right:' + (100 - lim.right) + '%';
+    h += '<div class="fgauge' + (L ? ' rtl' : '') + '" id="fGauge" style="' + gStyle + '" aria-hidden="true"><i></i><b></b></div>';
+
+    // 점 3개 (작은 × 표시. 위치는 drawPadCurve 가 넣음)
     state.pad.points.forEach(function (p, i) { h += '<span class="cp" data-i="' + i + '"></span>'; });
     $('padScreen').innerHTML = h;
     drawPadCurve();
@@ -233,17 +242,54 @@
     $('padScale').innerHTML = s;
   }
 
-  // 조절점 자리 + 곡선 다시 그리기
-  // 곡선(임시 모양): 잠수함 쪽 끝 가운데에서 출발, 조절점보다 조금 더 크게 휨 → 한계선 밖으로 나갈 수 있음 (점은 곡선을 당기는 손잡이)
+  /* ---------- 곡선 계산 ----------
+     출발 = 판의 잠수함 쪽 끝, 세로 가운데(= 내 잠수함 높이) → 점1 → 점2 → 점3 을 「정확히」 지나는 부드러운 곡선
+     (자연 3차 스플라인: 점마다 꺾이지 않고 매끈하게 이어짐). 점3 뒤로는 그 기울기 그대로 판 끝까지 쭉 이어짐.
+     가로 x 는 「잠수함 쪽 끝 = 0」 기준 (왼쪽을 볼 때 뒤집는 건 그릴 때만). 어뢰 날아가기에서도 이 함수를 씀 */
+  function curveSpline() {
+    var k = [[0, 50]];
+    state.pad.points.forEach(function (p) {
+      var x = Math.max(p[0], k[k.length - 1][0] + 0.5);       // 가로가 겹치면 계산이 안 되므로 살짝 띄움
+      k.push([x, p[1]]);
+    });
+    var n = k.length - 1, M = [], c = [], d = [], i;
+    M[0] = M[n] = 0;                                            // 양 끝은 휘는 정도 0 (자연 스플라인)
+    // 가운데 점들의 휘는 정도 구하기 (세 줄짜리 연립방정식)
+    c[0] = 0; d[0] = 0;
+    for (i = 1; i < n; i++) {
+      var h0 = k[i][0] - k[i - 1][0], h1 = k[i + 1][0] - k[i][0];
+      var rhs = 6 * ((k[i + 1][1] - k[i][1]) / h1 - (k[i][1] - k[i - 1][1]) / h0);
+      var den = 2 * (h0 + h1) - h0 * c[i - 1];
+      c[i] = h1 / den;
+      d[i] = (rhs - h0 * d[i - 1]) / den;
+    }
+    for (i = n - 1; i >= 1; i--) M[i] = d[i] - c[i] * M[i + 1];
+    return { k: k, M: M };
+  }
+  function padCurveY(x, sp) {
+    sp = sp || curveSpline();
+    var k = sp.k, M = sp.M, n = k.length - 1, i = 0;
+    var seg = function (i) { return k[i + 1][0] - k[i][0]; };
+    if (x >= k[n][0]) {                                         // 점3 뒤: 그 자리 기울기대로 곧게
+      var hl = seg(n - 1);
+      var slope = (k[n][1] - k[n - 1][1]) / hl + hl * (M[n - 1] + 2 * M[n]) / 6;
+      return k[n][1] + slope * (x - k[n][0]);
+    }
+    while (i < n - 1 && x > k[i + 1][0]) i++;
+    var h = seg(i), t = x - k[i][0];
+    var b = (k[i + 1][1] - k[i][1]) / h - h * (2 * M[i] + M[i + 1]) / 6;
+    return k[i][1] + b * t + M[i] / 2 * t * t + (M[i + 1] - M[i]) / (6 * h) * t * t * t;
+  }
+
+  // 점 자리 + 곡선 다시 그리기
   function drawPadCurve() {
-    var P = C.pad, pts = state.pad.points;
-    var amp = function (y) { return 50 + (y - 50) * P.curveGain; };
-    var line = [[0, 50]];
-    pts.forEach(function (p) { line.push([p[0], amp(p[1])]); });
-    var last = line[line.length - 1];
-    line.push([100, 50 + (last[1] - 50) * 0.4]);
+    var pts = state.pad.points, sp = curveSpline(), d = '';
+    for (var x = 0; x <= 100.001; x += 0.5) {
+      var y = Math.min(Math.max(padCurveY(x, sp), -400), 500);  // 판 밖은 어차피 잘려서 안 보임
+      d += (x ? ' L' : 'M') + padFx(x).toFixed(2) + ' ' + y.toFixed(2);
+    }
     var path = $('padCurve');
-    if (path) path.setAttribute('d', smoothPath(line.map(function (p) { return [padFx(p[0]), p[1]]; })));
+    if (path) path.setAttribute('d', d);
     Array.prototype.forEach.call($('padScreen').querySelectorAll('.cp'), function (el) {
       var p = pts[+el.getAttribute('data-i')];
       el.style.left = padFx(p[0]) + '%';
@@ -264,7 +310,7 @@
 
   // 게이지 찬 정도 → 판 아래 눈금 숫자로 읽은 거리 (눈금 i번 = 판의 (i+0.5)/개수 자리 = from + step×i)
   function gaugeToDistance(v) {
-    var S = C.pad.scale, pct = v * C.character.maxDist / 100;         // 판 가로 위치 (0~1, 잠수함 쪽 끝 = 0)
+    var S = C.pad.scale, pct = v * C.character.limit.right / 100;        // 판 가로 위치 (0~1, 잠수함 쪽 끝 = 0)
     return S.from + S.step * (pct * S.count - 0.5);
   }
 
@@ -277,16 +323,16 @@
     });
   }
 
-  // 점들을 부드럽게 잇는 곡선 (캣멀롬 → 베지어)
-  function smoothPath(p) {
-    var d = 'M' + p[0][0] + ' ' + p[0][1];
-    for (var i = 0; i < p.length - 1; i++) {
-      var p0 = p[i - 1] || p[i], p1 = p[i], p2 = p[i + 1], p3 = p[i + 2] || p2;
-      d += ' C' + (p1[0] + (p2[0] - p0[0]) / 6).toFixed(2) + ' ' + (p1[1] + (p2[1] - p0[1]) / 6).toFixed(2) +
-           ',' + (p2[0] - (p3[0] - p1[0]) / 6).toFixed(2) + ' ' + (p2[1] - (p3[1] - p1[1]) / 6).toFixed(2) +
-           ',' + p2[0] + ' ' + p2[1];
-    }
-    return d;
+  /* ---------- 조류 표시: 화살표 4방향(화면 기준, 잠수함이 돌아봐도 그대로) + 세기 단계 숫자 + 5칸 막대 ---------- */
+  var FLOW_TURN = { right: 0, down: 90, left: 180, up: 270 };
+  function setCurrent(dir, level) {
+    level = clamp(Math.round(level || 0), 0, 5);
+    var arrow = $('flowArrow');
+    arrow.style.transform = 'rotate(' + (FLOW_TURN[dir] || 0) + 'deg)';
+    arrow.style.visibility = level ? '' : 'hidden';            // 세기 0 = 조류 없음 → 화살표 숨김
+    $('flowLevel').textContent = level;
+    Array.prototype.forEach.call($('flowSegs').children, function (seg, i) { seg.classList.toggle('on', i < level); });
+    $('flowBox').setAttribute('aria-label', '조류 ' + ({ right: '오른쪽', left: '왼쪽', up: '위', down: '아래' }[dir] || '') + ' ' + level + '단계');
   }
 
   /* ---------- 움직일 때 쓰는 화면 바꾸기 (move.js 가 부름) ---------- */
@@ -359,7 +405,7 @@
     cam: cam, state: state, getSub: getSub,
     applyCamera: applyCamera, focusOn: focusOn, focusOnSub: focusOnSub, playTurnStart: playTurnStart,
     setMoveGauge: setMoveGauge, placeSub: placeSub, setFacing: setFacing,
-    copyPoints: copyPoints, padFx: padFx, drawPadCurve: drawPadCurve, setFireGauge: setFireGauge, gaugeToDistance: gaugeToDistance
+    copyPoints: copyPoints, defaultPoints: defaultPoints, padFx: padFx, padCurveY: padCurveY, setCurrent: setCurrent, drawPadCurve: drawPadCurve, setFireGauge: setFireGauge, gaugeToDistance: gaugeToDistance
   };
 
   init();

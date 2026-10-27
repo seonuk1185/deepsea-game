@@ -59,9 +59,13 @@
 
     <!-- C-2. 조류(위) + 궤도 다시(아래) -->
     <div class="mod flowm">
-      <div class="flowbox" aria-label="조류">
-        <svg viewBox="0 0 30 18" id="flowArrow"><path d="M3 9h20M17 3l7 6-7 6" fill="none" stroke="#9FE3FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <div class="flowbar"><i id="flowBar"></i></div>
+      <!-- 조류: 화살표(위·아래·왼쪽·오른쪽) + 세기 단계 숫자(0~5) + 5칸 막대 — main.js setCurrent 가 채움 -->
+      <div class="flowbox" id="flowBox" aria-label="조류">
+        <div class="flowtop">
+          <svg viewBox="0 0 24 24" id="flowArrow"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="#9FE3FF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <b id="flowLevel">0</b>
+        </div>
+        <div class="flowsegs" id="flowSegs"><i></i><i></i><i></i><i></i><i></i></div>
       </div>
       <button class="rbtn press" id="btnPadReset" aria-label="궤도 다시">↺</button>
     </div>

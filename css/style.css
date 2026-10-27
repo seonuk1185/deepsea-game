@@ -146,26 +146,37 @@ button{font:inherit;color:inherit;cursor:pointer}
 .pad{flex:1 1 auto;min-width:150px;padding:5px 5px 2px;display:flex;flex-direction:column;gap:2px}
 .screen{position:relative;flex:1;min-height:0;border-radius:var(--r-m);overflow:hidden;box-shadow:var(--sh-inset);
   background:
-    linear-gradient(90deg,rgba(88,240,122,.16) 1px,transparent 1px) 0 0/40px 100%,
-    linear-gradient(rgba(88,240,122,.16) 1px,transparent 1px) 0 0/100% 20px,
+    linear-gradient(90deg,rgba(88,240,122,.16) 1px,transparent 1px) 0 0/12px 100%,
+    linear-gradient(rgba(88,240,122,.16) 1px,transparent 1px) 0 0/100% 12px,
     radial-gradient(circle,var(--dot-off) 1.1px,transparent 1.4px) 0 0/5px 5px,
     var(--dot-bg)}
 .screen svg{position:absolute;inset:0;width:100%;height:100%}
-/* 한계선(노란 점선)과 그 바깥 어둡게 */
-.lim{position:absolute;left:0;right:0;height:0;border-top:2px dashed var(--c-warn);opacity:.9}
-.limv{position:absolute;top:0;bottom:0;width:0;border-left:2px dashed var(--c-warn);opacity:.9;margin-left:-1px}
+/* 노란 한계 상자(4면)와 그 바깥 어둡게 */
+.limbox{position:absolute}
+.limbox::before{content:"";position:absolute;inset:-1px;border:2px solid var(--c-warn);opacity:.95;box-shadow:0 0 4px rgba(255,197,61,.45)}  /* 선이 상자 경계 한가운데 오게 */
 .limzone{position:absolute;background:rgba(0,0,0,.45)}
-.limtag{position:absolute;top:2px;font:11px/1 var(--f-ui);color:var(--c-warn);white-space:nowrap}
+/* 점이 있는 세로 줄 (점선) */
+.pcol{position:absolute;top:0;bottom:0;width:0;border-left:1px dashed rgba(200,247,210,.5)}
+.limtag{position:absolute;bottom:2px;font:10px/1 var(--f-ui);opacity:.85;color:var(--c-warn);white-space:nowrap}
 /* 거리(발사) 게이지: 판 가운데를 가로지르는 주황 막대. 잠수함 쪽 끝에 딱 붙어서 시작 */
 .fgauge{position:absolute;top:50%;height:12px;margin-top:-6px;border-radius:3px;background:rgba(0,0,0,.55);border:1px solid #7A4A1A}
 .fgauge i{position:absolute;top:1px;bottom:1px;border-radius:2px;background:linear-gradient(90deg,#C4521A,#FF7A2E,#FFB27A)}
 .fgauge.rtl i{background:linear-gradient(270deg,#C4521A,#FF7A2E,#FFB27A)}
 .fgauge b{position:absolute;top:-5px;bottom:-5px;width:3px;margin-left:-1px;background:#fff;box-shadow:0 0 4px var(--c-main)}
-/* 조절점: 보이는 크기 16px, 손가락 닿는 범위 44px */
-.cp{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:var(--dot-bg);border:3px solid var(--dot-bright);box-shadow:0 0 6px var(--dot-on)}
-.cp::after{content:"";position:absolute;inset:-14px;border-radius:50%}
+/* 점: 작은 × 표시 (보이는 크기 12px, 손가락 닿는 범위는 pad.js grabRadius) */
+.cp{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:2px;
+  background:
+    linear-gradient(45deg,transparent 40%,#FFE9A8 40% 60%,transparent 60%),
+    linear-gradient(-45deg,transparent 40%,#FFE9A8 40% 60%,transparent 60%),
+    rgba(0,0,0,.45);
+  box-shadow:0 0 0 1px rgba(255,233,168,.55)}
+.cp::after{content:"";position:absolute;inset:-16px;border-radius:50%}
 /* 잡고 끄는 동안 점을 밝게 */
-.cp.held{background:var(--dot-on);box-shadow:0 0 10px var(--dot-bright)}
+.cp.held{background:
+    linear-gradient(45deg,transparent 36%,#fff 36% 64%,transparent 64%),
+    linear-gradient(-45deg,transparent 36%,#fff 36% 64%,transparent 64%),
+    rgba(255,197,61,.55);
+  box-shadow:0 0 0 2px #fff,0 0 10px var(--c-warn)}
 .screen{touch-action:none}
 /* 거리 눈금 (판 아래 금속 위 새김) */
 .scale{position:relative;height:15px;flex:none}
@@ -177,9 +188,14 @@ button{font:inherit;color:inherit;cursor:pointer}
 /* C-2. 조류 + 다시 */
 .flowm{width:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px}
 .flowbox{width:48px;height:44px;border-radius:var(--r-m);background:var(--lcd-bg);box-shadow:var(--sh-inset);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
-.flowbox svg{width:30px;height:18px;transition:transform .3s}
-.flowbar{width:38px;height:7px;border-radius:2px;background:#0D1317;border:1px solid #2B3A44;position:relative;overflow:hidden}
-.flowbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--flow-1),var(--flow-2))}
+/* 윗줄: 화살표(정사각형이라 위아래로 돌려도 크기 그대로) + 큰 단계 숫자 */
+.flowtop{display:flex;align-items:center;justify-content:center;gap:3px}
+.flowbox svg{width:18px;height:18px;transition:transform .3s}
+.flowtop b{font:900 18px/1 var(--f-led);color:var(--flow-2);text-shadow:0 0 5px rgba(159,227,255,.6)}
+/* 아랫줄: 세기 5칸 막대 (단계만큼 불이 들어옴) */
+.flowsegs{display:flex;gap:2px}
+.flowsegs i{width:6px;height:6px;border-radius:1px;background:#16222A;border:1px solid #2B3A44}
+.flowsegs i.on{background:linear-gradient(var(--flow-2),var(--flow-1));border-color:var(--flow-2)}
 .rbtn{width:44px;height:40px;border:0;border-radius:var(--r-m);font:20px/40px var(--f-ui);color:var(--c-text);
   background:radial-gradient(circle at 50% 35%,#5C6973,#1F282E 80%);box-shadow:0 0 0 3px #B7C1C7,0 0 0 4px #3B454C,0 3px 4px rgba(0,0,0,.5)}
 .rbtn:active{background:#1B2329;transform:translateY(1px)}
@@ -232,7 +248,8 @@ button{font:inherit;color:inherit;cursor:pointer}
   .timer{width:104px} .lcd.big span,.lcd.big s{font-size:52px} .lcd.small{height:32px} .lcd.small em,.lcd.small span{font-size:14px}
   .items{grid-template-columns:repeat(2,56px);grid-template-rows:repeat(2,56px);gap:8px}
   .slot{width:56px;height:56px} .slot svg{width:32px;height:32px}
-  .flowm{width:72px;gap:6px} .flowbox{width:60px;height:56px} .flowbox svg{width:36px;height:22px} .flowbar{width:46px;height:9px}
+  .flowm{width:72px;gap:6px} .flowbox{width:60px;height:56px} .flowbox svg{width:24px;height:24px} .flowtop b{font-size:24px}
+  .flowsegs i{width:8px;height:8px}
   .rbtn{width:56px;height:52px;font-size:26px;line-height:52px}
   .gauges{width:116px} .tube{height:18px}
   .face{width:108px} .win svg{width:84px;height:52px}
