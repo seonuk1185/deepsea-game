@@ -51,7 +51,7 @@
     <!-- B. 아이템 4칸 (2×2) — main.js가 채움 -->
     <div class="mod items" id="items"></div>
 
-    <!-- C. 궤도 판 (초록 점 화면) + 아래 거리 눈금 — 내용은 main.js가 그림 -->
+    <!-- C. 궤도 판 (초록 점 화면) + 아래 거리 눈금 — 내용은 main.js가 그림, 점 끌기는 pad.js -->
     <div class="mod pad">
       <div class="screen" id="padScreen"></div>
       <div class="scale" id="padScale"></div>
@@ -63,7 +63,7 @@
         <svg viewBox="0 0 30 18" id="flowArrow"><path d="M3 9h20M17 3l7 6-7 6" fill="none" stroke="#9FE3FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <div class="flowbar"><i id="flowBar"></i></div>
       </div>
-      <button class="rbtn press" aria-label="궤도 다시">↺</button>
+      <button class="rbtn press" id="btnPadReset" aria-label="궤도 다시">↺</button>
     </div>
 
     <!-- D. 이동 + 에너지 가로 게이지 -->
@@ -86,7 +86,7 @@
 
     <!-- F. 발사 / 턴 넘기기 -->
     <div class="act">
-      <button class="btn fire press">발사!</button>
+      <button class="btn fire press" id="btnFire">발사!</button>
       <button class="btn skip press" id="btnSkip">턴 넘기기<span class="ff"> ▶▶</span></button>
     </div>
   </div>
@@ -102,5 +102,7 @@
 <script src="js/config.js"></script>
 <script src="js/main.js"></script>
 <script src="js/move.js"></script>
+<script src="js/pad.js"></script>
+<script src="js/fire.js"></script>
 </body>
 </html>

@@ -2,7 +2,8 @@
    심해 포격전(가칭) — 게임 화면
    하는 일: 설정값(config.js)대로 화면을 그림 + 카메라 + 바다 끌어서 둘러보기
    잠수함 이동(조이스틱)은 move.js 가 맡음
-   아직 없는 것: 조준·발사·턴 진행 (다음 단계)
+   궤도 판 점 끌기는 pad.js, 발사 꾹 누르기(거리 정하기)는 fire.js
+   아직 없는 것: 어뢰 날아가기·턴 진행 (다음 단계)
    ========================================================= */
 (function () {
   'use strict';
@@ -13,8 +14,11 @@
   /* ---------- 지금 게임 상태 (설정값을 복사해서 시작, 게임 중에 바뀜) ---------- */
   var state = {
     subs: C.subs.map(function (s) { var o = {}; for (var k in s) o[k] = s[k]; return o; }),
-    move: C.movement.gaugeStart      // 이동 게이지 (0~1)
+    move: C.movement.gaugeStart,     // 이동 게이지 (0~1)
+    // 궤도 판: 조절점 3개 [가로%, 세로%] (캐릭터 기본 모양에서 시작) + 거리 게이지 찬 정도 (0~1)
+    pad: { points: copyPoints(C.character.padPoints), fill: 0, facing: 'right' }
   };
+  function copyPoints(list) { return list.map(function (p) { return [p[0], p[1]]; }); }
   function getSub(id) { return state.subs.filter(function (v) { return v.id === id; })[0]; }
 
   var seaView = $('seaView'), world = $('world'), worldBg = $('worldBg'), worldThings = $('worldThings');
@@ -157,7 +161,7 @@
      ========================================================= */
   function buildDashboard() {
     $('timerNum').textContent = C.timer;
-    $('delayNum').textContent = C.delay;
+    $('delayNum').textContent = '--';      // 아직 거리를 안 정함 (발사 꾹 누르고 떼면 숫자가 들어감)
     $('mapName').textContent = C.mapName;
 
     // 아이템 4칸
@@ -185,28 +189,22 @@
   }
 
   /* ---------- 궤도 판 ----------
-     잠수함이 오른쪽을 보면 왼쪽→오른쪽, 왼쪽을 보면 판 전체가 좌우 반전 */
+     잠수함이 오른쪽을 보면 왼쪽→오른쪽, 왼쪽을 보면 판 전체가 좌우 반전
+     판 모양(한계선·눈금)을 새로 그리는 건 여기, 점·곡선·게이지만 바꿀 땐 drawPadCurve / setFireGauge */
+  function padFx(x) { return state.pad.facing === 'left' ? 100 - x : x; }   // 가로 위치 뒤집기
+
   function buildPad(facing) {
-    var L = facing === 'left';
-    var fx = function (x) { return L ? 100 - x : x; };   // 가로 위치 뒤집기
+    state.pad.facing = facing;
+    var L = facing === 'left', fx = padFx;
     var ch = C.character, P = C.pad, h = '';
 
-    // 곡선(임시 모양): 잠수함 쪽 끝 가운데에서 출발, 조절점보다 조금 더 크게 휨 → 한계선 밖으로 나갈 수 있음
-    var amp = function (y) { return 50 + (y - 50) * P.curveGain; };
-    var pts = [[0, 50]];
-    P.points.forEach(function (p) { pts.push([p[0], amp(p[1])]); });
-    var last = pts[pts.length - 1];
-    pts.push([100, 50 + (last[1] - 50) * 0.4]);
-    h += '<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="' +
-      smoothPath(pts.map(function (p) { return [fx(p[0]), p[1]]; })) +
-      '" fill="none" stroke="#58F07A" stroke-width="3" vector-effect="non-scaling-stroke"/></svg>';
+    // 곡선 (pad.js 가 점을 끌 때마다 drawPadCurve 로 다시 그림)
+    h += '<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path id="padCurve" d="" ' +
+      'fill="none" stroke="#58F07A" stroke-width="3" vector-effect="non-scaling-stroke"/></svg>';
 
     // 거리 게이지 (가운데 주황 막대): 잠수함 쪽 끝에 붙어서 시작, 거리 한계선까지만
-    var fill = (P.distFill * 100).toFixed(1) + '%';
     var gStyle = L ? 'right:0;left:' + (100 - ch.maxDist) + '%' : 'left:0;right:' + (100 - ch.maxDist) + '%';
-    var iStyle = L ? 'right:1px;width:calc((100% - 2px) * ' + P.distFill + ')' : 'left:1px;width:calc((100% - 2px) * ' + P.distFill + ')';
-    var bStyle = 'left:' + (L ? 'calc(100% - ' + fill + ')' : fill);
-    h += '<div class="fgauge' + (L ? ' rtl' : '') + '" style="' + gStyle + '" aria-hidden="true"><i style="' + iStyle + '"></i><b style="' + bStyle + '"></b></div>';
+    h += '<div class="fgauge' + (L ? ' rtl' : '') + '" id="fGauge" style="' + gStyle + '" aria-hidden="true"><i></i><b></b></div>';
 
     // 한계선: 위·아래 = 발사 각도, 세로 = 최대 거리. 바깥은 어둡게. (조절점에만 적용)
     h += '<span class="limzone" style="left:0;right:0;top:0;height:' + ch.angleTop + '%"></span>';
@@ -218,11 +216,11 @@
     h += '<span class="limv" style="left:' + fx(ch.maxDist) + '%"></span>';
     h += '<span class="limtag" style="' + (L ? 'right:6px' : 'left:6px') + '">' + ch.name + ' 한계</span>';
 
-    // 조절점 3개
-    P.points.forEach(function (p) {
-      h += '<span class="cp" style="left:' + fx(p[0]) + '%;top:' + p[1] + '%"></span>';
-    });
+    // 조절점 3개 (위치는 drawPadCurve 가 넣음)
+    state.pad.points.forEach(function (p, i) { h += '<span class="cp" data-i="' + i + '"></span>'; });
     $('padScreen').innerHTML = h;
+    drawPadCurve();
+    setFireGauge(state.pad.fill);
 
     // 아래 거리 눈금 (9, 12, 15 …) — 잠수함 쪽에서부터
     var S = P.scale, s = '';
@@ -233,6 +231,41 @@
       s += '<span class="num" data-i="' + i + '" style="left:' + fx(pos) + '%">' + (S.from + S.step * i) + '</span>';
     }
     $('padScale').innerHTML = s;
+  }
+
+  // 조절점 자리 + 곡선 다시 그리기
+  // 곡선(임시 모양): 잠수함 쪽 끝 가운데에서 출발, 조절점보다 조금 더 크게 휨 → 한계선 밖으로 나갈 수 있음 (점은 곡선을 당기는 손잡이)
+  function drawPadCurve() {
+    var P = C.pad, pts = state.pad.points;
+    var amp = function (y) { return 50 + (y - 50) * P.curveGain; };
+    var line = [[0, 50]];
+    pts.forEach(function (p) { line.push([p[0], amp(p[1])]); });
+    var last = line[line.length - 1];
+    line.push([100, 50 + (last[1] - 50) * 0.4]);
+    var path = $('padCurve');
+    if (path) path.setAttribute('d', smoothPath(line.map(function (p) { return [padFx(p[0]), p[1]]; })));
+    Array.prototype.forEach.call($('padScreen').querySelectorAll('.cp'), function (el) {
+      var p = pts[+el.getAttribute('data-i')];
+      el.style.left = padFx(p[0]) + '%';
+      el.style.top = p[1] + '%';
+    });
+  }
+
+  // 거리 게이지 (0~1, 1 = 거리 한계선까지 꽉). 흰 표시 = 멈춘 자리
+  function setFireGauge(v) {
+    state.pad.fill = v;
+    var g = $('fGauge');
+    if (!g) return;
+    var L = state.pad.facing === 'left', k = v.toFixed(4);
+    var i = g.querySelector('i'), b = g.querySelector('b');
+    i.style.cssText = (L ? 'right:1px;' : 'left:1px;') + 'width:calc((100% - 2px) * ' + k + ')';
+    b.style.left = L ? 'calc(100% - ' + (v * 100).toFixed(2) + '%)' : (v * 100).toFixed(2) + '%';
+  }
+
+  // 게이지 찬 정도 → 판 아래 눈금 숫자로 읽은 거리 (눈금 i번 = 판의 (i+0.5)/개수 자리 = from + step×i)
+  function gaugeToDistance(v) {
+    var S = C.pad.scale, pct = v * C.character.maxDist / 100;         // 판 가로 위치 (0~1, 잠수함 쪽 끝 = 0)
+    return S.from + S.step * (pct * S.count - 0.5);
   }
 
   // 판이 좁으면 눈금 숫자를 하나 걸러 보여 줌 (글자 겹침 방지)
@@ -325,7 +358,8 @@
   window.Game = {
     cam: cam, state: state, getSub: getSub,
     applyCamera: applyCamera, focusOn: focusOn, focusOnSub: focusOnSub, playTurnStart: playTurnStart,
-    setMoveGauge: setMoveGauge, placeSub: placeSub, setFacing: setFacing
+    setMoveGauge: setMoveGauge, placeSub: placeSub, setFacing: setFacing,
+    copyPoints: copyPoints, padFx: padFx, drawPadCurve: drawPadCurve, setFireGauge: setFireGauge, gaugeToDistance: gaugeToDistance
   };
 
   init();

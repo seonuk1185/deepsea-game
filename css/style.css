@@ -164,6 +164,9 @@ button{font:inherit;color:inherit;cursor:pointer}
 /* 조절점: 보이는 크기 16px, 손가락 닿는 범위 44px */
 .cp{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:var(--dot-bg);border:3px solid var(--dot-bright);box-shadow:0 0 6px var(--dot-on)}
 .cp::after{content:"";position:absolute;inset:-14px;border-radius:50%}
+/* 잡고 끄는 동안 점을 밝게 */
+.cp.held{background:var(--dot-on);box-shadow:0 0 10px var(--dot-bright)}
+.screen{touch-action:none}
 /* 거리 눈금 (판 아래 금속 위 새김) */
 .scale{position:relative;height:15px;flex:none}
 .scale .tick{position:absolute;top:0;width:1px;height:3px;background:var(--engrave)}
@@ -204,10 +207,17 @@ button{font:inherit;color:inherit;cursor:pointer}
 .btn{border:0;border-radius:var(--r-m);font-family:var(--f-ui)}
 .fire{height:48px;flex:none;background:linear-gradient(#FF9A5C,var(--c-main) 55%,#E45F16);color:var(--c-main-ink);font-size:24px;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 3px 0 #8A3208,0 4px 6px rgba(0,0,0,.4)}
-.fire:active{transform:translateY(3px);box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+.fire:active,.fire.held{transform:translateY(3px);box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
+.fire{touch-action:none}
 .skip{flex:1;min-height:40px;background:linear-gradient(#4A565F,var(--bezel));color:var(--c-text);font-size:16px;white-space:nowrap;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 2px 0 #11171B}
 .skip:active{background:var(--engrave);transform:translateY(2px);box-shadow:none}
+
+/* ※ 임시: 발사 거리 정했을 때 바다 위 가운데에 잠깐 뜨는 글씨 (어뢰 날아가기를 만들면 지움) */
+.toast-temp{position:absolute;left:50%;top:30%;transform:translate(-50%,-50%);padding:6px 14px;border-radius:var(--r-m);
+  background:rgba(4,12,20,.8);border:1px solid var(--c-main);color:var(--c-text);font:18px var(--f-ui);white-space:nowrap;
+  pointer-events:none;opacity:0;transition:opacity .2s}
+.toast-temp.show{opacity:1}
 
 /* ===== 좁은 폰 (가로 720px 미만) ===== */
 @media (max-width:719px){
