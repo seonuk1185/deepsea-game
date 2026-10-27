@@ -34,6 +34,8 @@
   <div class="hud">
     <button class="menu press" id="btnPause" aria-label="일시정지"><span>Ⅱ</span></button>
     <div class="chat" id="chat" hidden><p><b>상어대장</b>그 각도로 맞출 수 있겠어? ㅋㅋ</p></div>
+    <!-- 아이템 4칸 (바다 왼쪽 위 가로 한 줄) — main.js가 채움 -->
+    <div class="items" id="items"></div>
     <div class="mapname" id="mapName">심해 유적</div>
     <!-- 이동 조이스틱: 손잡이를 끄는 방향으로 내 잠수함이 움직임 (move.js) -->
     <div class="joy" id="joy" aria-label="이동 조이스틱"><i></i></div>
@@ -48,10 +50,8 @@
       <div class="lcd small"><em>DELAY</em><span id="delayNum">0000</span></div>
     </div>
 
-    <!-- B. 아이템 4칸 (2×2) — main.js가 채움 -->
-    <div class="mod items" id="items"></div>
-
     <!-- C. 궤도 판 (초록 점 화면) + 아래 거리 눈금 — 내용은 main.js가 그림, 점 끌기는 pad.js
+         계기판 가운데만 위로 솟은 칸 (양옆보다 --dash-rise 만큼 높음 → 판 세로가 넓어짐)
          오른쪽 옆 좁은 띠 = ▲▼ 미세조정 (골라 둔 점을 한 칸씩. 잠수함이 돌아봐도 늘 오른쪽 = 엄지 자리) -->
     <div class="mod pad">
       <div class="padmain">
@@ -78,19 +78,21 @@
       <button class="rbtn press" id="btnPadReset" aria-label="궤도 다시">↺</button>
     </div>
 
-    <!-- D. 이동 + 에너지 가로 게이지 -->
+    <!-- D. 이동 + 에너지 세로 게이지 (서 있는 통 2개, 아래에서 위로 참). 위 = 화살표·숫자, 아래 = 이름 -->
     <div class="mod gauges">
       <div class="g move">
-        <span class="lbl">이동<svg class="arrow" viewBox="0 0 20 16"><path d="M3 8h14M6 4L2 8l4 4M14 4l4 4-4 4" fill="none" stroke="#04121D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <span class="gtop"><svg class="arrow" viewBox="0 0 20 16"><path d="M3 8h14M6 4L2 8l4 4M14 4l4 4-4 4" fill="none" stroke="#04121D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <div class="tube"><i id="moveBar"></i></div>
+        <span class="lbl">이동</span>
       </div>
       <div class="g energy">
-        <span class="lbl">에너지<b id="energyNum">100</b></span>
+        <b class="gtop" id="energyNum">100</b>
         <div class="tube"><i id="energyBar"></i></div>
+        <span class="lbl">에너지</span>
       </div>
     </div>
 
-    <!-- E. 내 잠수함 얼굴 창 (좁은 폰에서는 숨김) -->
+    <!-- E. 내 잠수함 얼굴 창 -->
     <div class="mod face">
       <div class="win" id="faceWin"></div>
       <span class="lbl" id="faceName">돌고래호</span>

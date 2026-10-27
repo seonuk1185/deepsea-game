@@ -33,7 +33,8 @@
   --text-halo: 0 0 3px #000, 0 1px 2px #000;
 
   /* 화면 틀 크기 */
-  --dash-h:140px;          /* 계기판 높이 (폰 140 = 궤도 판 크게 보이게, 태블릿 148) */
+  --dash-h:112px;          /* 계기판 양옆 높이 (폰 112, 태블릿 148) */
+  --dash-rise:40px;        /* 계기판 가운데(궤도 판 칸)만 양옆보다 이만큼 위로 솟음 → 판 세로가 넓어짐 (폰 40, 태블릿 28) */
   --joy-size:96px;         /* 조이스틱 지름 */
   --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
   --safe-t:env(safe-area-inset-top,0px);  --safe-b:env(safe-area-inset-bottom,0px);
@@ -41,7 +42,7 @@
   /* main.js가 넣어 주는 값: 카메라 배율의 반대 (이름표를 늘 같은 크기로) */
   --inv-zoom:1;
 }
-@media (min-height:600px){ :root{ --dash-h:148px; --joy-size:112px; } }
+@media (min-height:600px){ :root{ --dash-h:148px; --dash-rise:28px; --joy-size:112px; } }
 
 /* ===== 기본: 스크롤·확대·글자선택·길게누르기 메뉴 막기 ===== */
 *{box-sizing:border-box;margin:0;padding:0}
@@ -51,7 +52,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--c-bg);color:va
 button{font:inherit;color:inherit;cursor:pointer}
 .game{position:fixed;inset:0;overflow:hidden;background:var(--c-bg)}
 
-/* ===== 바다 창문 + 게임 세계 ===== */
+/* ===== 바다 창문 + 게임 세계 =====
+   바다는 계기판 양옆 높이(--dash-h)까지 내려옴 → 솟은 가운데 칸 양옆으로도 바다가 보임 */
 .sea-view{position:absolute;left:0;right:0;top:0;bottom:var(--dash-h);overflow:hidden;background:var(--sea-fallback);cursor:grab}
 .sea-view.dragging{cursor:grabbing}
 .world{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
@@ -80,15 +82,16 @@ button{font:inherit;color:inherit;cursor:pointer}
 .crate{position:absolute;width:26px;height:22px;margin:-11px 0 0 -13px;border-radius:4px;background:#A86A2C;border:2px solid #5A3612;
   color:#FFE7B0;font:14px/18px var(--f-ui);text-align:center}
 
-/* ===== 바다 위 고정 표시 (HUD) ===== */
-.hud{position:absolute;left:0;right:0;top:0;bottom:var(--dash-h);pointer-events:none}
+/* ===== 바다 위 고정 표시 (HUD) =====
+   바닥 = 솟은 가운데 칸 위 (조이스틱·맵 이름이 솟은 칸에 가리지 않게) */
+.hud{position:absolute;left:0;right:0;top:0;bottom:calc(var(--dash-h) + var(--dash-rise));pointer-events:none}
 .hud > *{pointer-events:auto}
 .menu{position:absolute;top:calc(4px + var(--safe-t));right:calc(4px + var(--safe-r));width:44px;height:44px;border:0;background:none;
   display:flex;align-items:center;justify-content:center}
 .menu span{width:32px;height:32px;border-radius:var(--r-m);background:rgba(7,26,43,.85);border:1px solid #4E6375;
   color:var(--c-text);font:16px/30px var(--f-ui);text-align:center}
 .menu:active span{background:#1B2329}
-.chat{position:absolute;left:calc(var(--s3) + var(--safe-l));top:calc(var(--s3) + var(--safe-t));max-width:60%;font-size:13px;line-height:18px;
+.chat{position:absolute;left:calc(var(--s3) + var(--safe-l));top:calc(var(--s3) + 50px + var(--safe-t));   /* 아이템 줄 밑 */max-width:60%;font-size:13px;line-height:18px;
   text-shadow:var(--text-halo);pointer-events:none}
 .chat p b{color:var(--c-enemy);font-weight:700;margin-right:6px}
 .mapname{position:absolute;left:50%;transform:translateX(-50%);bottom:6px;font:13px var(--f-ui);pointer-events:none;
@@ -104,7 +107,8 @@ button{font:inherit;color:inherit;cursor:pointer}
 .joy.held i{background:rgba(255,255,255,.38);transition:none}
 
 /* ===== 아래 금속 계기판 ===== */
-.dash{position:absolute;left:0;right:0;bottom:0;height:var(--dash-h);display:flex;gap:6px;align-items:stretch;
+/* z-index:1 = 계기판을 따로 한 겹으로 → 솟은 칸 금속판(.pad::before)이 계기판 바탕 위·부품 아래에 깔림 */
+.dash{position:absolute;left:0;right:0;bottom:0;height:var(--dash-h);display:flex;gap:6px;align-items:stretch;z-index:1;
   padding:8px calc(8px + var(--safe-r)) calc(8px + var(--safe-b)) calc(8px + var(--safe-l));
   background:linear-gradient(180deg,var(--metal-hi) 0,var(--metal) 8%,var(--metal-mid) 55%,var(--metal-lo) 100%);
   border-top:2px solid #DDE4E8;box-shadow:0 -3px 8px rgba(0,0,0,.55)}
@@ -130,20 +134,30 @@ button{font:inherit;color:inherit;cursor:pointer}
 .lcd.small em{font:12px/1 var(--f-ui);font-style:normal;color:#FF9B9B}
 .lcd.small span{font:700 12px/1 var(--f-led);color:var(--delay)}
 
-/* B. 아이템 4칸 */
-.items{display:grid;grid-template-columns:repeat(2,44px);grid-template-rows:repeat(2,44px);gap:6px;align-content:center;padding:4px 8px}
-.slot{width:44px;height:44px;border:0;border-radius:var(--r-full);position:relative;
+/* B. 아이템 4칸 — 바다 왼쪽 위에 가로 한 줄 (계기판에서 빼냄. 오른쪽 위 일시정지와 안 겹침) */
+.items{position:absolute;left:calc(10px + var(--safe-l));top:calc(8px + var(--safe-t));display:flex;gap:10px}
+.slot{width:38px;height:38px;border:0;border-radius:var(--r-full);position:relative;
   background:radial-gradient(circle at 50% 40%,#3a454d,#151b20 70%);
-  box-shadow:0 0 0 3px #B7C1C7,0 0 0 4px #3B454C,var(--sh-inset);display:flex;align-items:center;justify-content:center}
+  box-shadow:0 0 0 3px #B7C1C7,0 0 0 4px #3B454C,var(--sh-inset),0 2px 6px 3px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
+.slot:not(.full){opacity:.8}
 .slot.full{background:radial-gradient(circle at 50% 35%,#FFB27A,#C4521A 75%)}
 .slot.sel{box-shadow:0 0 0 3px var(--c-warn),0 0 0 5px #3B454C,0 0 10px var(--c-warn)}
 .slot.full:active{filter:brightness(.8)}
-.slot svg{width:26px;height:26px}
-.slot i{position:absolute;right:-3px;bottom:-3px;min-width:18px;height:18px;border-radius:var(--r-full);background:var(--engrave);
-  color:var(--c-text);font:12px/16px var(--f-ui);font-style:normal;text-align:center;border:1px solid #9AA6AE}
+.slot svg{width:22px;height:22px}
+.slot i{position:absolute;right:-4px;bottom:-4px;min-width:16px;height:16px;border-radius:var(--r-full);background:var(--engrave);
+  color:var(--c-text);font:11px/14px var(--f-ui);font-style:normal;text-align:center;border:1px solid #9AA6AE}
 
-/* C. 궤도 판 */
-.pad{flex:1 1 auto;min-width:150px;padding:5px 5px 2px;display:flex;gap:4px}
+/* C. 궤도 판 — 계기판 가운데만 위로 솟은 칸: 위 여백을 --dash-rise 만큼 당겨서 양옆 부품보다 높게 */
+.pad{flex:1 1 auto;min-width:150px;padding:5px 5px 2px;display:flex;gap:4px;margin-top:calc(-1 * var(--dash-rise))}
+/* 솟은 부분 금속판: 계기판과 같은 금속 + 위 밝은 테두리 + 위로 그림자. 아래쪽은 계기판 속으로 12px 겹쳐 이음매가 안 보이게 */
+.pad::before{content:"";position:absolute;z-index:-1;left:-6px;right:-6px;top:-10px;height:calc(var(--dash-rise) + 12px);
+  border-radius:14px 14px 0 0;border-top:2px solid #DDE4E8;
+  background:repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 1px,transparent 1px 3px),
+    linear-gradient(180deg,var(--metal-hi) 0,var(--metal) 10px,var(--metal) 100%);
+  box-shadow:0 -3px 8px rgba(0,0,0,.55)}
+/* 턴 시작 번쩍: 솟은 칸 테두리도 같이 */
+.dash.turnflash .pad::before{animation:bumpflash .45s ease-in-out 3}
+@keyframes bumpflash{50%{border-top-color:var(--c-hp);box-shadow:0 -3px 8px rgba(0,0,0,.55),inset 0 3px 12px rgba(255,210,63,.75)}}
 .padmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 /* ▲▼ 미세조정 띠 (판 오른쪽 옆, 폭 30px). 보이는 버튼은 작아도 손가락 닿는 범위는 위아래 44px 이상 (::after) */
 .nudge{width:30px;flex:none;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;padding:0 0 3px;gap:2px}
@@ -218,17 +232,18 @@ button{font:inherit;color:inherit;cursor:pointer}
   background:radial-gradient(circle at 50% 35%,#5C6973,#1F282E 80%);box-shadow:0 0 0 3px #B7C1C7,0 0 0 4px #3B454C,0 3px 4px rgba(0,0,0,.5)}
 .rbtn:active{background:#1B2329;transform:translateY(1px)}
 
-/* D. 이동 + 에너지 가로 게이지 */
-.gauges{width:92px;display:flex;flex-direction:column;justify-content:center;gap:10px;padding:6px 8px}
-.g{display:flex;flex-direction:column;gap:4px}
-.g .lbl{display:flex;justify-content:space-between;align-items:center}
-.g .lbl b{font:12px/1 var(--f-ui)}
+/* D. 이동 + 에너지 세로 게이지 (서 있는 통 2개, 아래에서 위로 참 — 4단계 설계서 원래 모양) */
+.gauges{width:80px;display:flex;justify-content:center;gap:6px;padding:6px 4px}
+.g{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px}
+.gtop{height:12px;display:flex;align-items:center;font:12px/1 var(--f-ui);color:var(--engrave);text-shadow:0 1px 0 rgba(255,255,255,.35)}
 .arrow{width:20px;height:12px}
-.tube{height:14px;border-radius:var(--r-s);background:#0D1317;box-shadow:var(--sh-inset);position:relative;overflow:hidden}
-.tube i{position:absolute;top:3px;bottom:3px;left:3px;border-radius:2px;max-width:calc(100% - 6px)}
-.g.move .tube i{background:linear-gradient(90deg,#22B856,#9DFFB4)}
+.tube{flex:1;min-height:0;width:18px;border-radius:var(--r-s);background:#0D1317;box-shadow:var(--sh-inset);position:relative;overflow:hidden}
+/* 막대 높이는 main.js 가 넣음 (setMoveGauge / setEnergyGauge) */
+.tube i{position:absolute;left:3px;right:3px;bottom:3px;height:0;border-radius:2px;max-height:calc(100% - 6px)}
+.g.move .tube i{background:linear-gradient(0deg,#22B856,#9DFFB4)}
 .g.move .tube i.low{background:var(--c-warn)}
-.g.energy .tube i{background:linear-gradient(90deg,#E07A00,#FFD23F)}
+.g.energy .tube i{background:linear-gradient(0deg,#E07A00,#FFD23F)}
+.g .lbl{white-space:nowrap}
 
 /* E. 내 잠수함 얼굴 창 */
 .face{width:84px;display:flex;flex-direction:column;align-items:center;gap:4px}
@@ -236,14 +251,14 @@ button{font:inherit;color:inherit;cursor:pointer}
   display:flex;align-items:center;justify-content:center;overflow:hidden}
 .win svg{width:64px;height:40px}
 
-/* F. 발사 / 턴 넘기기 */
-.act{width:104px;flex:none;display:flex;flex-direction:column;gap:4px}
+/* F. 발사 / 턴 넘기기 (형님 지시로 작게: 발사 40px, 턴 넘기기 34px, 칸 가운데 정렬) */
+.act{width:84px;flex:none;display:flex;flex-direction:column;justify-content:center;gap:6px}
 .btn{border:0;border-radius:var(--r-m);font-family:var(--f-ui)}
-.fire{height:48px;flex:none;background:linear-gradient(#FF9A5C,var(--c-main) 55%,#E45F16);color:var(--c-main-ink);font-size:24px;
+.fire{height:40px;flex:none;background:linear-gradient(#FF9A5C,var(--c-main) 55%,#E45F16);color:var(--c-main-ink);font-size:20px;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 3px 0 #8A3208,0 4px 6px rgba(0,0,0,.4)}
 .fire:active,.fire.held{transform:translateY(3px);box-shadow:inset 0 1px 0 rgba(255,255,255,.4)}
 .fire{touch-action:none}
-.skip{flex:1;min-height:40px;background:linear-gradient(#4A565F,var(--bezel));color:var(--c-text);font-size:16px;white-space:nowrap;
+.skip{height:34px;flex:none;background:linear-gradient(#4A565F,var(--bezel));color:var(--c-text);font-size:14px;white-space:nowrap;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 2px 0 #11171B}
 .skip:active{background:var(--engrave);transform:translateY(2px);box-shadow:none}
 
@@ -285,34 +300,34 @@ button{font:inherit;color:inherit;cursor:pointer}
 /* 어뢰가 날아가는 동안: 발사 버튼·조이스틱 흐리게 (잠김 표시) */
 .game.busy .fire,.game.busy .joy{opacity:.45}
 
-/* ===== 폰 (높이 600px 미만): 내 잠수함 얼굴 창을 빼서 궤도 판을 넓게 (형님 피드백: 폰에서 판이 작다) ===== */
+/* ===== 폰 (높이 600px 미만): 턴 넘기기 ▶▶ 표시는 빼서 작은 버튼에 글씨가 들어가게 ===== */
 @media (max-height:599px){
-  .face{display:none}
+  .ff{display:none}
 }
 
-/* ===== 좁은 폰 (가로 720px 미만) ===== */
+/* ===== 좁은 폰 (가로 720px 미만): 부품을 조금씩 좁혀 궤도 판 자리 확보 ===== */
 @media (max-width:719px){
-  .face{display:none}
-  .act{width:92px}
-  .fire{font-size:22px}
-  .ff{display:none}
+  .timer{width:76px}
+  .face{width:72px}
+  .act{width:76px}
+  .fire{font-size:18px}
+  .skip{font-size:13px}
 }
 
 /* ===== 태블릿·PC (높이 600px 이상): 계기판 부품 1.25배 ===== */
 @media (min-height:600px) and (orientation:landscape){
   .timer{width:104px} .lcd.big span,.lcd.big s{font-size:52px} .lcd.small{height:32px} .lcd.small em,.lcd.small span{font-size:14px}
-  .items{grid-template-columns:repeat(2,56px);grid-template-rows:repeat(2,56px);gap:8px}
-  .slot{width:56px;height:56px} .slot svg{width:32px;height:32px}
+  .items{gap:12px} .slot{width:46px;height:46px} .slot svg{width:28px;height:28px}
   .flowm{width:72px;gap:6px} .flowbox{width:60px;height:56px} .flowbox svg{width:24px;height:24px} .flowtop b{font-size:24px}
   .flowsegs i{width:8px;height:8px}
   .rbtn{width:56px;height:52px;font-size:26px;line-height:52px}
-  .gauges{width:116px} .tube{height:18px}
+  .gauges{width:100px} .tube{width:22px} .gtop{height:14px;font-size:14px}
   .face{width:108px} .win svg{width:84px;height:52px}
-  .act{width:132px} .fire{height:64px;font-size:30px} .skip{font-size:18px}
-  .lbl,.g .lbl b{font-size:14px} .scale{height:18px} .scale .num{font-size:13px}
+  .act{width:112px} .fire{height:52px;font-size:26px} .skip{height:42px;font-size:17px}
+  .lbl{font-size:14px} .scale{height:18px} .scale .num{font-size:13px}
   .nudge{width:40px} .nbtn{max-height:52px;font-size:16px} .ntag{font-size:13px;line-height:14px}
   .menu{width:52px;height:52px} .menu span{width:40px;height:40px;line-height:38px;font-size:18px}
-  .mapname{font-size:15px} .chat{font-size:15px;line-height:22px}
+  .mapname{font-size:15px} .chat{font-size:15px;line-height:22px;top:calc(var(--s3) + 58px + var(--safe-t))}
 }
 /* 아주 큰 PC 화면: 가운데 1600×900 상자 안에 */
 @media (min-width:1601px) and (min-height:901px){

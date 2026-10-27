@@ -173,7 +173,7 @@
     $('delayNum').textContent = '--';      // 아직 거리를 안 정함 (발사 꾹 누르고 떼면 숫자가 들어감)
     $('mapName').textContent = C.mapName;
 
-    // 아이템 4칸
+    // 아이템 4칸 (바다 왼쪽 위 가로 한 줄)
     $('items').innerHTML = C.items.map(function (it) {
       if (!it.type) return '<button class="slot" aria-label="빈 칸"></button>';
       return '<button class="slot full' + (it.selected ? ' sel' : '') + '" aria-label="' + ITEM_NAMES[it.type] + '">' +
@@ -182,10 +182,9 @@
 
     setCurrent(C.current.dir, C.current.strength);
 
-    // 이동 / 에너지
+    // 이동 / 에너지 (세로 통)
     setMoveGauge(state.move);
-    $('energyBar').style.width = 'calc((100% - 6px) * ' + C.energy / 100 + ')';
-    $('energyNum').textContent = C.energy;
+    setEnergyGauge(C.energy);
 
     // 내 잠수함 얼굴 창
     var me = state.subs.filter(function (s) { return s.side === 'me'; })[0];
@@ -343,11 +342,16 @@
   }
 
   /* ---------- 움직일 때 쓰는 화면 바꾸기 (move.js 가 부름) ---------- */
-  // 이동 게이지 막대 (0~1). 20% 이하면 노란색
+  // 이동 게이지 (0~1): 세로 통 아래에서 위로 참 (통 안쪽 여백 3px씩 빼고). 20% 이하면 노란색
   function setMoveGauge(v) {
     var mv = $('moveBar');
-    mv.style.width = 'calc((100% - 6px) * ' + v.toFixed(4) + ')';
+    mv.style.height = 'calc((100% - 6px) * ' + v.toFixed(4) + ')';
     mv.classList.toggle('low', v <= 0.2);
+  }
+  // 에너지 게이지 (0~100): 세로 통 높이 + 위 숫자
+  function setEnergyGauge(hp) {
+    $('energyBar').style.height = 'calc((100% - 6px) * ' + (hp / 100).toFixed(4) + ')';
+    $('energyNum').textContent = hp;
   }
   // 잠수함 그림을 지금 좌표로 옮김 (이름·체력바·화살표는 잠수함에 붙어 있어 같이 움직임)
   function placeSub(id) {
@@ -387,8 +391,7 @@
       }
     }
     if (s.side === 'me') {
-      $('energyBar').style.width = 'calc((100% - 6px) * ' + s.hp / 100 + ')';
-      $('energyNum').textContent = s.hp;
+      setEnergyGauge(s.hp);
     }
   }
 
