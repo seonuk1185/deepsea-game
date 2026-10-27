@@ -74,7 +74,8 @@
     if (!s) return;
     var st = G.state, inp = readStick();
 
-    if (inp.power > 0 && st.move > 0) {
+    // st.busy = 어뢰가 날아가는 중 (torpedo.js) → 그동안은 못 움직임
+    if (inp.power > 0 && st.move > 0 && !st.busy) {
       // 바라보는 쪽: 좌우로 충분히 밀었을 때만 돌아봄 (거의 위아래로만 밀면 그대로)
       var hx = inp.x * inp.power;
       if (hx > M.faceThreshold) G.setFacing(meId, 'right');

@@ -2,8 +2,8 @@
    심해 포격전(가칭) — 게임 화면
    하는 일: 설정값(config.js)대로 화면을 그림 + 카메라 + 바다 끌어서 둘러보기
    잠수함 이동(조이스틱)은 move.js 가 맡음
-   궤도 판 점 끌기는 pad.js, 발사 꾹 누르기(거리 정하기)는 fire.js
-   아직 없는 것: 어뢰 날아가기·턴 진행 (다음 단계)
+   궤도 판 점 끌기는 pad.js, 발사 꾹 누르기(거리 정하기)는 fire.js, 어뢰 날아가기·폭발·데미지는 torpedo.js
+   아직 없는 것: 턴 진행·컴퓨터 상대 (다음 단계)
    ========================================================= */
 (function () {
   'use strict';
@@ -368,6 +368,30 @@
     if (s.side === 'me') { buildPad(facing); fitScaleLabels(); }
   }
 
+  /* ---------- 체력 바꾸기 (torpedo.js 가 부름) ----------
+     머리 위 노란 체력바 + (내 잠수함이면) 계기판 에너지 게이지·숫자를 같이 바꿈.
+     0 이 되면 「격침」: 잠수함이 회색으로 + 머리 위에 「격침」 글씨 (아직 게임 끝내기는 없음) */
+  function setSubHp(id, hp) {
+    var s = getSub(id), el = $('sub-' + id);
+    if (!s) return;
+    s.hp = clamp(Math.round(hp), 0, 100);
+    if (el) {
+      var bar = el.querySelector('.minihp i');
+      if (bar) bar.style.width = s.hp + '%';
+      if (s.hp <= 0 && !el.classList.contains('sunk')) {
+        el.classList.add('sunk');
+        var mark = document.createElement('div');
+        mark.className = 'sunkmark';
+        mark.textContent = '격침';
+        el.querySelector('.tag').appendChild(mark);
+      }
+    }
+    if (s.side === 'me') {
+      $('energyBar').style.width = 'calc((100% - 6px) * ' + s.hp / 100 + ')';
+      $('energyNum').textContent = s.hp;
+    }
+  }
+
   /* ---------- 턴 시작 연출: 계기판 테두리 번쩍 ---------- */
   function playTurnStart() {
     var dash = $('dash');
@@ -412,7 +436,7 @@
     cam: cam, state: state, getSub: getSub,
     applyCamera: applyCamera, focusOn: focusOn, focusOnSub: focusOnSub, playTurnStart: playTurnStart,
     setMoveGauge: setMoveGauge, placeSub: placeSub, setFacing: setFacing,
-    copyPoints: copyPoints, defaultPoints: defaultPoints, padFx: padFx, u2p: u2p, unitsToWorld: unitsToWorld, padCurveY: padCurveY, setCurrent: setCurrent, drawPadCurve: drawPadCurve, setFireGauge: setFireGauge, gaugeToDistance: gaugeToDistance
+    copyPoints: copyPoints, defaultPoints: defaultPoints, padFx: padFx, u2p: u2p, unitsToWorld: unitsToWorld, padCurveY: padCurveY, curveSpline: curveSpline, setSubHp: setSubHp, setCurrent: setCurrent, drawPadCurve: drawPadCurve, setFireGauge: setFireGauge, gaugeToDistance: gaugeToDistance
   };
 
   init();

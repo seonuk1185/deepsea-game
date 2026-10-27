@@ -247,11 +247,43 @@ button{font:inherit;color:inherit;cursor:pointer}
   box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 2px 0 #11171B}
 .skip:active{background:var(--engrave);transform:translateY(2px);box-shadow:none}
 
-/* ※ 임시: 발사 거리 정했을 때 바다 위 가운데에 잠깐 뜨는 글씨 (어뢰 날아가기를 만들면 지움) */
-.toast-temp{position:absolute;left:50%;top:30%;transform:translate(-50%,-50%);padding:6px 14px;border-radius:var(--r-m);
-  background:rgba(4,12,20,.8);border:1px solid var(--c-main);color:var(--c-text);font:18px var(--f-ui);white-space:nowrap;
-  pointer-events:none;opacity:0;transition:opacity .2s}
-.toast-temp.show{opacity:1}
+/* ===== 어뢰 (torpedo.js) — 세계 좌표에 놓임 ===== */
+/* 어뢰 몸통: 주황·빨강 미사일 그림. 가운데가 어뢰 자리, 날아가는 방향으로 돌아감 */
+.torpedo{position:absolute;width:0;height:0;pointer-events:none;z-index:5}
+.torpedo svg{position:absolute;left:-16px;top:-6px;width:32px;height:12px;overflow:visible;filter:drop-shadow(0 0 3px rgba(255,140,40,.8))}
+/* 꼬리 거품: 생겼다가 커지면서 살짝 떠오르며 사라짐 */
+.tbub{position:absolute;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;border:1px solid rgba(255,255,255,.9);
+  background:rgba(255,255,255,.35);pointer-events:none;animation:tbub .7s ease-out forwards}
+@keyframes tbub{0%{transform:scale(.6);opacity:.95}100%{transform:translateY(-10px) scale(1.6);opacity:0}}
+/* 폭발: 번쩍 + 퍼지는 고리(크기 = 폭발 범위) + 거품. 약 0.6초 */
+.boom{position:absolute;width:0;height:0;pointer-events:none;z-index:6}
+.boom .flash{position:absolute;left:calc(var(--r) * -.6);top:calc(var(--r) * -.6);width:calc(var(--r) * 1.2);height:calc(var(--r) * 1.2);border-radius:50%;
+  background:radial-gradient(circle,#fff 0%,#FFE7A0 25%,rgba(255,122,46,.85) 50%,rgba(255,80,30,0) 72%);animation:bflash var(--t) ease-out forwards}
+.boom .ring{position:absolute;left:calc(var(--r) * -1);top:calc(var(--r) * -1);width:calc(var(--r) * 2);height:calc(var(--r) * 2);border-radius:50%;
+  border:4px solid rgba(255,230,170,.9);box-shadow:0 0 12px rgba(255,160,60,.8),inset 0 0 12px rgba(255,160,60,.6);animation:bring var(--t) ease-out forwards}
+.boom .bb{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;border:2px solid rgba(255,255,255,.9);
+  animation:bbub var(--t) ease-out forwards}
+@keyframes bflash{0%{transform:scale(.2);opacity:1}35%{transform:scale(1);opacity:1}100%{transform:scale(1.1);opacity:0}}
+@keyframes bring{0%{transform:scale(.1);opacity:1}80%{opacity:.8}100%{transform:scale(1);opacity:0}}
+@keyframes bbub{0%{transform:translate(0,0) scale(.4);opacity:1}100%{transform:translate(var(--bx),var(--by)) scale(1.2);opacity:0}}
+/* 맵 밖으로 나가서 사라질 때: 작은 연기 한 번 (고리 없음) */
+.boom.puff .flash{background:radial-gradient(circle,rgba(255,255,255,.85) 0%,rgba(200,220,235,.45) 50%,rgba(200,220,235,0) 72%)}
+/* 데미지 숫자 (「-28」): 잠수함 머리 위로 떠오르며 사라짐. 카메라 배율과 상관없이 같은 크기 */
+.dmgnum{position:absolute;width:0;height:0;pointer-events:none;z-index:7}
+.dmgnum b{position:absolute;left:0;bottom:0;transform:translateX(-50%) scale(var(--inv-zoom));transform-origin:50% 100%;white-space:nowrap;
+  font:26px/1 var(--f-title);color:#FF5A5F;-webkit-text-stroke:1px #2A0000;text-shadow:0 0 4px #000,0 2px 0 #000;animation:dmgup 1.4s ease-out forwards}
+.dmgnum.small b{font-size:18px;color:#FFB0B3}
+@keyframes dmgup{0%{opacity:0;margin-bottom:-6px}12%{opacity:1;margin-bottom:6px}70%{opacity:1}100%{opacity:0;margin-bottom:34px}}
+/* 화면 살짝 흔들림 (폭발할 때) */
+.sea-view.shake .world-bg,.sea-view.shake .world-things{animation:shake .35s linear}
+@keyframes shake{0%,100%{transform:translate(0,0)}20%{transform:translate(var(--sh),calc(var(--sh) * -.6))}40%{transform:translate(calc(var(--sh) * -.8),calc(var(--sh) * .5))}
+  60%{transform:translate(calc(var(--sh) * .5),calc(var(--sh) * .4))}80%{transform:translate(calc(var(--sh) * -.3),calc(var(--sh) * -.2))}}
+/* 격침된 잠수함: 회색으로 + 머리 위 「격침」 */
+.sub.sunk .body{filter:grayscale(1) brightness(.55);opacity:.75}
+.sub.sunk .minihp{opacity:.5}
+.sunkmark{font:14px/1 var(--f-title);color:#fff;background:var(--c-danger);padding:2px 6px;border-radius:var(--r-s);text-shadow:0 1px 0 #000}
+/* 어뢰가 날아가는 동안: 발사 버튼·조이스틱 흐리게 (잠김 표시) */
+.game.busy .fire,.game.busy .joy{opacity:.45}
 
 /* ===== 좁은 폰 (가로 720px 미만) ===== */
 @media (max-width:719px){
