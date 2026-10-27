@@ -2,7 +2,7 @@
    심해 포격전(가칭) — 발사 버튼 꾹 누르기 → 터지는 거리(DELAY) 정하기
    1) 발사를 누르고 있는 동안: 궤도 판 가운데 주황 게이지가 잠수함 쪽 끝에서 차오르고,
       거리 한계선에 닿으면 다시 내려오고… 왔다 갔다 반복
-   2) 손을 떼면 멈춤 → 흰 표시가 멈춘 자리 = 터지는 거리. 왼쪽 위 DELAY 칸에 숫자(판 아래 눈금 기준)
+   2) 손을 떼면 멈춤 → 흰 표시가 멈춘 자리 = 터지는 거리. 왼쪽 위 DELAY 칸에 거리 칸 숫자(0 ~ 최대 거리, 반올림)
    3) 지금은 어뢰가 아직 안 날아감 (다음 단계). 결과만 기록 + 확인용 글씨
    main.js 다음에 불러야 함 (window.Game 을 씀)
    ========================================================= */
@@ -14,7 +14,7 @@
   var delayNum = document.getElementById('delayNum');
 
   var hold = null;      // 누르고 있는 동안 { id: 손가락 번호, t0: 누른 시각 }
-  G.state.shot = null;  // 정해진 결과 { gauge: 0~1, distance: 눈금 거리, worldX: 맵에서 간 거리 }
+  G.state.shot = null;  // 정해진 결과 { gauge: 0~1, distance: 거리 칸(0 ~ limit.right, 판 아래 눈금과 같음), worldX: 맵에서 갈 거리 }
 
   // 누른 시간 → 게이지 (0 → 1 → 0 → 1 … 왕복)
   function gaugeAt(sec) {
@@ -51,7 +51,7 @@
     G.state.shot = {
       gauge: v,
       distance: dist,
-      worldX: v * C.character.limit.right / 100 * C.world.w     // 판 = 맵 전체를 줄인 것 → 맵 가로 거리로
+      worldX: G.unitsToWorld(dist)                              // 거리 칸 → 맵 거리 (1칸 = config.js pad.worldPerUnit)
     };
     delayNum.textContent = Math.round(dist);
     console.log('[발사 거리 결정]', G.state.shot);

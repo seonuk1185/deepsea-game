@@ -152,10 +152,11 @@ button{font:inherit;color:inherit;cursor:pointer}
 .nbtn::after{content:"";position:absolute;left:-4px;right:-5px;top:-6px;bottom:-6px}
 .nbtn:active,.nbtn.held{background:var(--engrave);transform:translateY(1px);box-shadow:inset 0 0 6px rgba(255,197,61,.5)}
 .ntag{flex:none;text-align:center;font:11px/12px var(--f-ui);color:var(--engrave);text-shadow:0 1px 0 rgba(255,255,255,.35);pointer-events:none}
+/* 판 모눈: 세로줄 = 거리 1칸마다 (판 가로 40칸 = config.js pad.span), 가로줄 간격 = 1칸 폭(--cell, main.js 가 넣음) → 정사각형 칸 */
 .screen{position:relative;flex:1;min-height:0;border-radius:var(--r-m);overflow:hidden;box-shadow:var(--sh-inset);
   background:
-    linear-gradient(90deg,rgba(88,240,122,.16) 1px,transparent 1px) 0 0/12px 100%,
-    linear-gradient(rgba(88,240,122,.16) 1px,transparent 1px) 0 0/100% 12px,
+    linear-gradient(90deg,rgba(88,240,122,.16) 1px,transparent 1px) 0 0/calc(100% / 40) 100%,
+    linear-gradient(rgba(88,240,122,.16) 1px,transparent 1px) 0 0/100% var(--cell,12px),
     radial-gradient(circle,var(--dot-off) 1.1px,transparent 1.4px) 0 0/5px 5px,
     var(--dot-bg)}
 .screen svg{position:absolute;inset:0;width:100%;height:100%}
@@ -194,12 +195,13 @@ button{font:inherit;color:inherit;cursor:pointer}
   box-shadow:0 0 0 1px var(--c-warn),0 0 0 3px rgba(255,197,61,.35),0 0 8px 1px rgba(255,197,61,.8)}
 .cp.sel.held{box-shadow:0 0 0 1px #fff,0 0 0 3px rgba(255,197,61,.5),0 0 10px 2px var(--c-warn)}
 .screen{touch-action:none}
-/* 거리 눈금 (판 아래 금속 위 새김) */
+/* 거리 눈금 (판 아래 금속 위 새김): 1칸마다 작은 금, 3칸마다 큰 금 + 숫자. 판이 좁으면(.tight) 숫자 글씨만 작게 */
 .scale{position:relative;height:15px;flex:none}
 .scale .tick{position:absolute;top:0;width:1px;height:3px;background:var(--engrave)}
 .scale .tick.major{height:4px;width:2px;margin-left:-1px}
 .scale .num{position:absolute;top:4px;transform:translateX(-50%);font:11px/1 var(--f-ui);color:var(--engrave);
   text-shadow:0 1px 0 rgba(255,255,255,.35)}
+.scale.tight .num{font-size:8px;top:4px;letter-spacing:-.4px}
 
 /* C-2. 조류 + 다시 */
 .flowm{width:60px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:4px}

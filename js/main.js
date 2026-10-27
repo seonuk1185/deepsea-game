@@ -15,7 +15,7 @@
   var state = {
     subs: C.subs.map(function (s) { var o = {}; for (var k in s) o[k] = s[k]; return o; }),
     move: C.movement.gaugeStart,     // 이동 게이지 (0~1)
-    // 궤도 판: 조절점 3개 [가로%, 세로%] (캐릭터 기본 모양에서 시작) + 거리 게이지 찬 정도 (0~1)
+    // 궤도 판: 핀 3개 [가로(거리 칸, 잠수함 쪽 끝 = 0), 세로(판 높이 %)] (캐릭터 기본 모양에서 시작) + 거리 게이지 찬 정도 (0~1)
     //         + sel = ▲▼ 미세조정으로 움직일 「골라 둔 점」 번호 (0~2, 처음엔 가운데)
     pad: { points: defaultPoints(), fill: 0, facing: 'right', sel: C.pad.defaultSelected || 0 }
   };
@@ -198,7 +198,11 @@
   /* ---------- 궤도 판 ----------
      잠수함이 오른쪽을 보면 왼쪽→오른쪽, 왼쪽을 보면 판 전체가 좌우 반전
      판 모양(한계선·눈금)을 새로 그리는 건 여기, 점·곡선·게이지만 바꿀 땐 drawPadCurve / setFireGauge */
-  function padFx(x) { return state.pad.facing === 'left' ? 100 - x : x; }   // 가로 위치 뒤집기
+  // 가로 거리 칸(잠수함 쪽 끝 = 0, 판 끝 = pad.span 40) → 판 위 % 자리. 잠수함이 왼쪽을 보면 뒤집음
+  function u2p(u) { return u / C.pad.span * 100; }
+  function padFx(u) { var x = u2p(u); return state.pad.facing === 'left' ? 100 - x : x; }
+  // 거리 칸 → 맵(세계) 거리 (config.js pad.worldPerUnit: 1칸 = 맵 48, 판 전체 40칸 = 맵 가로 1920). 어뢰 날아가기에서 씀
+  function unitsToWorld(u) { return u * C.pad.worldPerUnit; }
 
   function buildPad(facing) {
     state.pad.facing = facing;
@@ -212,7 +216,7 @@
     state.pad.points.forEach(function (p) { h += '<span class="pcol" style="left:' + fx(p[0]) + '%"></span>'; });
 
     // 노란 한계 상자 (4면) + 바깥 어둡게. 위·아래 = 발사 각도, 왼쪽 = 최소 거리, 오른쪽 = 최대 거리
-    var bx0 = Math.min(fx(lim.left), fx(lim.right)), bx1 = Math.max(fx(lim.left), fx(lim.right));
+    var bx0 = Math.min(fx(lim.left), fx(lim.right)), bx1 = Math.max(fx(lim.left), fx(lim.right));   // 거리 칸 → 판 %
     h += box(0, 100, 0, lim.top, 'limzone') + box(0, 100, lim.bottom, 100, 'limzone');
     h += box(0, bx0, lim.top, lim.bottom, 'limzone') + box(bx1, 100, lim.top, lim.bottom, 'limzone');
     // 상자가 판 끝에 딱 붙어 있으면(limit.left = 0) 그쪽 테두리를 판 안쪽으로 들여 그려서 잘리지 않게
@@ -224,7 +228,8 @@
       'fill="none" stroke="#4FB6FF" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>';
 
     // 거리 게이지 (가운데 주황 막대): 잠수함 쪽 끝에 붙어서 시작, 상자 오른쪽 변(최대 거리)까지만
-    var gStyle = L ? 'right:0;left:' + (100 - lim.right) + '%' : 'left:0;right:' + (100 - lim.right) + '%';
+    var gEnd = 100 - u2p(lim.right);
+    var gStyle = L ? 'right:0;left:' + gEnd + '%' : 'left:0;right:' + gEnd + '%';
     h += '<div class="fgauge' + (L ? ' rtl' : '') + '" id="fGauge" style="' + gStyle + '" aria-hidden="true"><i></i><b></b></div>';
 
     // 점 3개 (작은 × 표시. 위치는 drawPadCurve 가 넣음)
@@ -233,13 +238,12 @@
     drawPadCurve();
     setFireGauge(state.pad.fill);
 
-    // 아래 거리 눈금 (9, 12, 15 …) — 잠수함 쪽에서부터
-    var S = P.scale, s = '';
-    for (var i = 0; i < S.count; i++) {
-      var pos = (i + 0.5) / S.count * 100;
-      s += '<span class="tick major" style="left:' + fx(pos) + '%"></span>';
-      if (i < S.count - 1) s += '<span class="tick" style="left:' + fx(pos + 50 / S.count) + '%"></span>';
-      s += '<span class="num" data-i="' + i + '" style="left:' + fx(pos) + '%">' + (S.from + S.step * i) + '</span>';
+    // 아래 거리 눈금 — 잠수함 쪽 끝 = 0. 1칸마다 작은 금, 3칸마다 큰 금 + 숫자 3, 6, 9 … 39 (판 모눈 세로줄과 같은 자리)
+    var s = '';
+    for (var u = 1; u < P.span; u++) {
+      var big = u % P.labelEvery === 0;
+      s += '<span class="tick' + (big ? ' major' : '') + '" style="left:' + fx(u) + '%"></span>';
+      if (big) s += '<span class="num" style="left:' + fx(u) + '%">' + u + '</span>';
     }
     $('padScale').innerHTML = s;
   }
@@ -247,11 +251,12 @@
   /* ---------- 곡선 계산 ----------
      출발 = 판의 잠수함 쪽 끝, 세로 가운데(= 내 잠수함 높이) → 점1 → 점2 → 점3 을 「정확히」 지나는 부드러운 곡선
      (자연 3차 스플라인: 점마다 꺾이지 않고 매끈하게 이어짐). 곡선은 맨 끝 핀에서 끝남(그 뒤로 이어지는 선 없음).
-     가로 x 는 「잠수함 쪽 끝 = 0」 기준 (왼쪽을 볼 때 뒤집는 건 그릴 때만). 어뢰 날아가기에서도 이 함수를 씀 */
+     가로 x 는 「거리 칸」(잠수함 쪽 끝 = 0, 1칸 = 거리 1), 세로 y 는 판 높이 % (왼쪽을 볼 때 뒤집는 건 그릴 때만).
+     어뢰 날아가기에서도 이 함수를 씀: Game.padCurveY(거리 칸) → 그 거리에서의 높이 %. 맵 거리로는 Game.unitsToWorld(칸) */
   function curveSpline() {
     var k = [[0, 50]];
     state.pad.points.forEach(function (p) {
-      var x = Math.max(p[0], k[k.length - 1][0] + 0.5);       // 가로가 겹치면 계산이 안 되므로 살짝 띄움
+      var x = Math.max(p[0], k[k.length - 1][0] + 0.2);       // 가로가 겹치면 계산이 안 되므로 살짝 띄움
       k.push([x, p[1]]);
     });
     var n = k.length - 1, M = [], c = [], d = [], i;
@@ -283,7 +288,7 @@
   function drawPadCurve() {
     var pts = state.pad.points, sp = curveSpline(), d = '';
     var xEnd = sp.k[sp.k.length - 1][0];                        // 맨 끝 핀 가로 = 곡선 끝
-    for (var x = 0; ; x += 0.5) {
+    for (var x = 0; ; x += 0.2) {                               // 0.2칸마다 한 점씩 이어 그림
       if (x > xEnd) x = xEnd;
       var y = Math.min(Math.max(padCurveY(x, sp), -400), 500);  // 판 밖은 어차피 잘려서 안 보임
       d += (x ? ' L' : 'M') + padFx(x).toFixed(2) + ' ' + y.toFixed(2);
@@ -312,19 +317,17 @@
     b.style.left = L ? 'calc(100% - ' + (v * 100).toFixed(2) + '%)' : (v * 100).toFixed(2) + '%';
   }
 
-  // 게이지 찬 정도 → 판 아래 눈금 숫자로 읽은 거리 (눈금 i번 = 판의 (i+0.5)/개수 자리 = from + step×i)
+  // 게이지 찬 정도(0~1) → 거리 칸 (0 = 잠수함 쪽 끝, 1 = 최대 거리 limit.right). 판 아래 눈금 숫자와 그대로 같음
   function gaugeToDistance(v) {
-    var S = C.pad.scale, pct = v * C.character.limit.right / 100;        // 판 가로 위치 (0~1, 잠수함 쪽 끝 = 0)
-    return S.from + S.step * (pct * S.count - 0.5);
+    return v * C.character.limit.right;
   }
 
-  // 판이 좁으면 눈금 숫자를 하나 걸러 보여 줌 (글자 겹침 방지)
+  // 판 크기에 맞추기: ① 모눈 가로줄 간격 = 1칸 폭(정사각형 모눈) ② 판이 좁으면 눈금 숫자 글씨를 작게 (3칸마다 숫자는 그대로)
   function fitScaleLabels() {
-    var el = $('padScale');
-    var tight = el.clientWidth / C.pad.scale.count < 24;
-    Array.prototype.forEach.call(el.querySelectorAll('.num'), function (n) {
-      n.style.visibility = (tight && n.getAttribute('data-i') % 2 === 1) ? 'hidden' : '';
-    });
+    var scr = $('padScreen'), el = $('padScale');
+    var cell = scr.clientWidth / C.pad.span;
+    if (cell > 0) scr.style.setProperty('--cell', cell.toFixed(3) + 'px');
+    el.classList.toggle('tight', el.clientWidth / C.pad.span * C.pad.labelEvery < 20);
   }
 
   /* ---------- 조류 표시: 화살표 4방향(화면 기준, 잠수함이 돌아봐도 그대로) + 세기 단계 숫자 + 5칸 막대 ---------- */
@@ -409,7 +412,7 @@
     cam: cam, state: state, getSub: getSub,
     applyCamera: applyCamera, focusOn: focusOn, focusOnSub: focusOnSub, playTurnStart: playTurnStart,
     setMoveGauge: setMoveGauge, placeSub: placeSub, setFacing: setFacing,
-    copyPoints: copyPoints, defaultPoints: defaultPoints, padFx: padFx, padCurveY: padCurveY, setCurrent: setCurrent, drawPadCurve: drawPadCurve, setFireGauge: setFireGauge, gaugeToDistance: gaugeToDistance
+    copyPoints: copyPoints, defaultPoints: defaultPoints, padFx: padFx, u2p: u2p, unitsToWorld: unitsToWorld, padCurveY: padCurveY, setCurrent: setCurrent, drawPadCurve: drawPadCurve, setFireGauge: setFireGauge, gaugeToDistance: gaugeToDistance
   };
 
   init();
