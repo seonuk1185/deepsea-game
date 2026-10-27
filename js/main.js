@@ -16,7 +16,8 @@
     subs: C.subs.map(function (s) { var o = {}; for (var k in s) o[k] = s[k]; return o; }),
     move: C.movement.gaugeStart,     // 이동 게이지 (0~1)
     // 궤도 판: 조절점 3개 [가로%, 세로%] (캐릭터 기본 모양에서 시작) + 거리 게이지 찬 정도 (0~1)
-    pad: { points: defaultPoints(), fill: 0, facing: 'right' }
+    //         + sel = ▲▼ 미세조정으로 움직일 「골라 둔 점」 번호 (0~2, 처음엔 가운데)
+    pad: { points: defaultPoints(), fill: 0, facing: 'right', sel: C.pad.defaultSelected || 0 }
   };
   function copyPoints(list) { return list.map(function (p) { return [p[0], p[1]]; }); }
   // 캐릭터 기본 점 모양 (설정값이 노란 상자 밖이면 상자 안으로 넣어서)
@@ -214,7 +215,8 @@
     var bx0 = Math.min(fx(lim.left), fx(lim.right)), bx1 = Math.max(fx(lim.left), fx(lim.right));
     h += box(0, 100, 0, lim.top, 'limzone') + box(0, 100, lim.bottom, 100, 'limzone');
     h += box(0, bx0, lim.top, lim.bottom, 'limzone') + box(bx1, 100, lim.top, lim.bottom, 'limzone');
-    h += box(bx0, bx1, lim.top, lim.bottom, 'limbox');
+    // 상자가 판 끝에 딱 붙어 있으면(limit.left = 0) 그쪽 테두리를 판 안쪽으로 들여 그려서 잘리지 않게
+    h += box(bx0, bx1, lim.top, lim.bottom, 'limbox' + (bx0 <= 0 ? ' edge-l' : '') + (bx1 >= 100 ? ' edge-r' : ''));
     h += '<span class="limtag" style="' + (L ? 'right:6px' : 'left:6px') + '">' + ch.name + ' 한계</span>';
 
     // 곡선 (파란 선. pad.js 가 점을 끌 때마다 drawPadCurve 로 다시 그림. 판 밖으로 나간 부분은 잘림)
@@ -294,7 +296,10 @@
       var p = pts[+el.getAttribute('data-i')];
       el.style.left = padFx(p[0]) + '%';
       el.style.top = p[1] + '%';
+      el.classList.toggle('sel', +el.getAttribute('data-i') === state.pad.sel);   // 골라 둔 점 = 노란 빛 테두리
     });
+    var tag = $('nudgeTag');                                     // ▲▼ 사이 작은 글씨 「점2」
+    if (tag) tag.textContent = '점' + (state.pad.sel + 1);
   }
 
   // 거리 게이지 (0~1, 1 = 거리 한계선까지 꽉). 흰 표시 = 멈춘 자리

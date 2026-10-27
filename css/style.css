@@ -143,7 +143,15 @@ button{font:inherit;color:inherit;cursor:pointer}
   color:var(--c-text);font:12px/16px var(--f-ui);font-style:normal;text-align:center;border:1px solid #9AA6AE}
 
 /* C. 궤도 판 */
-.pad{flex:1 1 auto;min-width:150px;padding:5px 5px 2px;display:flex;flex-direction:column;gap:2px}
+.pad{flex:1 1 auto;min-width:150px;padding:5px 5px 2px;display:flex;gap:4px}
+.padmain{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+/* ▲▼ 미세조정 띠 (판 오른쪽 옆, 폭 30px). 보이는 버튼은 작아도 손가락 닿는 범위는 위아래 44px 이상 (::after) */
+.nudge{width:30px;flex:none;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;padding:0 0 3px;gap:2px}
+.nbtn{position:relative;flex:1;min-height:30px;max-height:40px;border:0;border-radius:var(--r-s);font:12px/1 var(--f-ui);color:var(--c-warn);
+  background:linear-gradient(#3A454D,#1F282E);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 2px 0 #11171B;touch-action:none}
+.nbtn::after{content:"";position:absolute;left:-4px;right:-5px;top:-6px;bottom:-6px}
+.nbtn:active,.nbtn.held{background:var(--engrave);transform:translateY(1px);box-shadow:inset 0 0 6px rgba(255,197,61,.5)}
+.ntag{flex:none;text-align:center;font:11px/12px var(--f-ui);color:var(--engrave);text-shadow:0 1px 0 rgba(255,255,255,.35);pointer-events:none}
 .screen{position:relative;flex:1;min-height:0;border-radius:var(--r-m);overflow:hidden;box-shadow:var(--sh-inset);
   background:
     linear-gradient(90deg,rgba(88,240,122,.16) 1px,transparent 1px) 0 0/12px 100%,
@@ -154,6 +162,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 /* 노란 한계 상자(4면)와 그 바깥 어둡게 */
 .limbox{position:absolute}
 .limbox::before{content:"";position:absolute;inset:-1px;border:2px solid var(--c-warn);opacity:.95;box-shadow:0 0 4px rgba(255,197,61,.45)}  /* 선이 상자 경계 한가운데 오게 */
+.limbox.edge-l::before{left:0} .limbox.edge-r::before{right:0}   /* 판 끝에 붙은 변은 안쪽으로 (안 잘리게) */
 .limzone{position:absolute;background:rgba(0,0,0,.45)}
 /* 점이 있는 세로 줄 (점선) */
 .pcol{position:absolute;top:0;bottom:0;width:0;border-left:1px dashed rgba(200,247,210,.5)}
@@ -177,6 +186,13 @@ button{font:inherit;color:inherit;cursor:pointer}
     linear-gradient(-45deg,transparent 36%,#fff 36% 64%,transparent 64%),
     rgba(255,197,61,.55);
   box-shadow:0 0 0 2px #fff,0 0 10px var(--c-warn)}
+/* ▲▼ 로 움직일 「골라 둔 점」: 노란 바탕 + 빛나는 동그라미 테두리 */
+.cp.sel{background:
+    linear-gradient(45deg,transparent 36%,#1A0A00 36% 64%,transparent 64%),
+    linear-gradient(-45deg,transparent 36%,#1A0A00 36% 64%,transparent 64%),
+    var(--c-warn);
+  box-shadow:0 0 0 2px var(--c-warn),0 0 0 4px rgba(255,197,61,.35),0 0 10px 2px rgba(255,197,61,.8)}
+.cp.sel.held{box-shadow:0 0 0 2px #fff,0 0 0 4px rgba(255,197,61,.5),0 0 12px 3px var(--c-warn)}
 .screen{touch-action:none}
 /* 거리 눈금 (판 아래 금속 위 새김) */
 .scale{position:relative;height:15px;flex:none}
@@ -255,6 +271,7 @@ button{font:inherit;color:inherit;cursor:pointer}
   .face{width:108px} .win svg{width:84px;height:52px}
   .act{width:132px} .fire{height:64px;font-size:30px} .skip{font-size:18px}
   .lbl,.g .lbl b{font-size:14px} .scale{height:18px} .scale .num{font-size:13px}
+  .nudge{width:40px} .nbtn{max-height:52px;font-size:16px} .ntag{font-size:13px;line-height:14px}
   .menu{width:52px;height:52px} .menu span{width:40px;height:40px;line-height:38px;font-size:18px}
   .mapname{font-size:15px} .chat{font-size:15px;line-height:22px}
 }

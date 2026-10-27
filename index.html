@@ -51,10 +51,18 @@
     <!-- B. 아이템 4칸 (2×2) — main.js가 채움 -->
     <div class="mod items" id="items"></div>
 
-    <!-- C. 궤도 판 (초록 점 화면) + 아래 거리 눈금 — 내용은 main.js가 그림, 점 끌기는 pad.js -->
+    <!-- C. 궤도 판 (초록 점 화면) + 아래 거리 눈금 — 내용은 main.js가 그림, 점 끌기는 pad.js
+         오른쪽 옆 좁은 띠 = ▲▼ 미세조정 (골라 둔 점을 한 칸씩. 잠수함이 돌아봐도 늘 오른쪽 = 엄지 자리) -->
     <div class="mod pad">
-      <div class="screen" id="padScreen"></div>
-      <div class="scale" id="padScale"></div>
+      <div class="padmain">
+        <div class="screen" id="padScreen"></div>
+        <div class="scale" id="padScale"></div>
+      </div>
+      <div class="nudge" aria-label="점 미세조정">
+        <button class="nbtn press" id="btnNudgeUp" aria-label="고른 점 위로 한 칸">▲</button>
+        <span class="ntag" id="nudgeTag">점2</span>
+        <button class="nbtn press" id="btnNudgeDown" aria-label="고른 점 아래로 한 칸">▼</button>
+      </div>
     </div>
 
     <!-- C-2. 조류(위) + 궤도 다시(아래) -->
