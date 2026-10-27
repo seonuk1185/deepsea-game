@@ -1,0 +1,14 @@
+{
+  "name": "심해 포격전 (가칭)",
+  "short_name": "심해 포격전",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#071A2B",
+  "theme_color": "#071A2B",
+  "lang": "ko",
+  "icons": [
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

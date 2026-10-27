@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover: 노치(카메라 구멍) 밑까지 화면을 씀. 확대/축소 막음 -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#071A2B">
+<meta name="color-scheme" content="dark">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>심해 포격전 (가칭)</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Do+Hyeon&family=DotGothic16&family=Noto+Sans+KR:wght@500;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="game" id="game">
+
+  <!-- ===== 바다 창문 (계기판 위 전부). 여기서 손가락으로 끌면 화면이 움직임 ===== -->
+  <div class="sea-view" id="seaView">
+    <!-- 게임 세계: 화면보다 넓은 판. 카메라가 이 판을 옮겨서 보여 줌 -->
+    <div class="world" id="world">
+      <div class="world-bg" id="worldBg"></div>
+      <div class="world-things" id="worldThings"><!-- 잠수함·보급상자는 main.js가 채움 --></div>
+    </div>
+  </div>
+
+  <!-- ===== 바다 위에 떠 있는 것들 (세계와 같이 움직이지 않음) ===== -->
+  <div class="hud">
+    <button class="menu press" id="btnPause" aria-label="일시정지"><span>Ⅱ</span></button>
+    <div class="chat" id="chat" hidden><p><b>상어대장</b>그 각도로 맞출 수 있겠어? ㅋㅋ</p></div>
+    <div class="mapname" id="mapName">심해 유적</div>
+    <!-- 이동 조이스틱 (지금은 모양만) -->
+    <div class="joy" id="joy" aria-label="이동 조이스틱"><i></i></div>
+  </div>
+
+  <!-- ===== 아래 금속 계기판 ===== -->
+  <div class="dash" id="dash">
+
+    <!-- A. 시간 + DELAY -->
+    <div class="mod timer">
+      <div class="lcd big"><s>88</s><span id="timerNum">20</span></div>
+      <div class="lcd small"><em>DELAY</em><span id="delayNum">0000</span></div>
+    </div>
+
+    <!-- B. 아이템 4칸 (2×2) — main.js가 채움 -->
+    <div class="mod items" id="items"></div>
+
+    <!-- C. 궤도 판 (초록 점 화면) + 아래 거리 눈금 — 내용은 main.js가 그림 -->
+    <div class="mod pad">
+      <div class="screen" id="padScreen"></div>
+      <div class="scale" id="padScale"></div>
+    </div>
+
+    <!-- C-2. 조류(위) + 궤도 다시(아래) -->
+    <div class="mod flowm">
+      <div class="flowbox" aria-label="조류">
+        <svg viewBox="0 0 30 18" id="flowArrow"><path d="M3 9h20M17 3l7 6-7 6" fill="none" stroke="#9FE3FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="flowbar"><i id="flowBar"></i></div>
+      </div>
+      <button class="rbtn press" aria-label="궤도 다시">↺</button>
+    </div>
+
+    <!-- D. 이동 + 에너지 가로 게이지 -->
+    <div class="mod gauges">
+      <div class="g move">
+        <span class="lbl">이동<svg class="arrow" viewBox="0 0 20 16"><path d="M3 8h14M6 4L2 8l4 4M14 4l4 4-4 4" fill="none" stroke="#04121D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+        <div class="tube"><i id="moveBar"></i></div>
+      </div>
+      <div class="g energy">
+        <span class="lbl">에너지<b id="energyNum">100</b></span>
+        <div class="tube"><i id="energyBar"></i></div>
+      </div>
+    </div>
+
+    <!-- E. 내 잠수함 얼굴 창 (좁은 폰에서는 숨김) -->
+    <div class="mod face">
+      <div class="win" id="faceWin"></div>
+      <span class="lbl" id="faceName">돌고래호</span>
+    </div>
+
+    <!-- F. 발사 / 턴 넘기기 -->
+    <div class="act">
+      <button class="btn fire press">발사!</button>
+      <button class="btn skip press">턴 넘기기<span class="ff"> ▶▶</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- 폰을 세로로 들었을 때 -->
+<div class="rotate">
+  <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#3FB8FF" stroke-width="4" stroke-linecap="round"><rect x="18" y="6" width="28" height="48" rx="5"/><path d="M8 40a24 24 0 0 0 40 14M48 54l0-8M48 54l-8 0"/></svg>
+  <div>폰을 옆으로 돌려 주세요</div>
+  <small>이 게임은 가로 화면에서만 할 수 있어요.</small>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
