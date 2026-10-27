@@ -5,8 +5,8 @@
 
 /* ===== 디자인 토큰 ===== */
 :root{
-  /* 폰 브라우저가 「다크 모드」로 색을 멋대로 어둡게 바꾸지 못하게: 이 게임은 원래 어두운 화면이라고 알려줌 */
-  color-scheme:dark;
+  /* 폰 브라우저가 「다크 모드」로 색을 멋대로 어둡게 바꾸지 못하게: 「only light」 = 브라우저가 강제로 어둡게 바꾸는 것 금지 신호 */
+  color-scheme:only light;
   /* 색 */
   --c-main:#FF7A2E; --c-main-ink:#1A0A00;
   --c-sub:#3FB8FF;  --c-sub-ink:#04121D;
