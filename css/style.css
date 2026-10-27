@@ -33,7 +33,7 @@
   --text-halo: 0 0 3px #000, 0 1px 2px #000;
 
   /* 화면 틀 크기 */
-  --dash-h:112px;          /* 계기판 높이 (태블릿 148) */
+  --dash-h:140px;          /* 계기판 높이 (폰 140 = 궤도 판 크게 보이게, 태블릿 148) */
   --joy-size:96px;         /* 조이스틱 지름 */
   --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
   --safe-t:env(safe-area-inset-top,0px);  --safe-b:env(safe-area-inset-bottom,0px);
@@ -284,6 +284,11 @@ button{font:inherit;color:inherit;cursor:pointer}
 .sunkmark{font:14px/1 var(--f-title);color:#fff;background:var(--c-danger);padding:2px 6px;border-radius:var(--r-s);text-shadow:0 1px 0 #000}
 /* 어뢰가 날아가는 동안: 발사 버튼·조이스틱 흐리게 (잠김 표시) */
 .game.busy .fire,.game.busy .joy{opacity:.45}
+
+/* ===== 폰 (높이 600px 미만): 내 잠수함 얼굴 창을 빼서 궤도 판을 넓게 (형님 피드백: 폰에서 판이 작다) ===== */
+@media (max-height:599px){
+  .face{display:none}
+}
 
 /* ===== 좁은 폰 (가로 720px 미만) ===== */
 @media (max-width:719px){

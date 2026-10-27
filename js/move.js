@@ -125,11 +125,14 @@
   }
   requestAnimationFrame(frame);
 
-  /* ---------- 임시: 턴 넘기기 버튼을 누르면 이동 게이지가 다시 가득 ----------
+  /* ---------- 임시: 턴 넘기기 버튼을 누르면 이동 게이지가 다시 가득 + 거리 게이지·DELAY 처음으로 ----------
      (턴 진행을 만들면 이 부분은 지우고, 내 턴이 시작될 때 게이지를 채우게 바꿈) */
   document.getElementById('btnSkip').addEventListener('click', function () {
     G.state.move = M.gaugeStart;
     G.setMoveGauge(G.state.move);
+    G.setFireGauge(0);                                          // 지난 턴에 쏜 거리 게이지 비우기
+    G.state.shot = null;
+    document.getElementById('delayNum').textContent = '--';
   });
 
   // 확인용으로 밖에서 볼 수 있게

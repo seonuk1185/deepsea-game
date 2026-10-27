@@ -1,8 +1,8 @@
 /* =========================================================
    심해 포격전(가칭) — 발사 버튼 꾹 누르기 → 터지는 거리(DELAY) 정하기
-   1) 발사를 누르고 있는 동안: 궤도 판 가운데 주황 게이지가 잠수함 쪽 끝에서 차오르고,
-      거리 한계선에 닿으면 다시 내려오고… 왔다 갔다 반복
+   1) 발사를 누르고 있는 동안: 궤도 판 가운데 주황 게이지가 잠수함 쪽 끝에서 차오름
    2) 손을 떼면 멈춤 → 흰 표시가 멈춘 자리 = 터지는 거리. 왼쪽 위 DELAY 칸에 거리 칸 숫자(0 ~ 최대 거리, 반올림)
+      끝(노란 한계선 = 최대 거리)까지 차면 손을 안 떼도 그 자리에서 저절로 결정 (뒤에 손을 떼도 아무 일 없음)
    3) 정해지면 바로 어뢰 발사 (torpedo.js 의 Game.fireTorpedo). 어뢰가 날아가는 동안은 발사 버튼이 잠김
    main.js 다음에 불러야 함 (window.Game 을 씀)
    ========================================================= */
@@ -16,15 +16,16 @@
   var hold = null;      // 누르고 있는 동안 { id: 손가락 번호, t0: 누른 시각 }
   G.state.shot = null;  // 정해진 결과 { gauge: 0~1, distance: 거리 칸(0 ~ limit.right, 판 아래 눈금과 같음), worldX: 맵에서 갈 거리 }
 
-  // 누른 시간 → 게이지 (0 → 1 → 0 → 1 … 왕복)
+  // 누른 시간 → 게이지 (0 → 1 까지 차고 멈춤)
   function gaugeAt(sec) {
-    var k = (sec / C.fire.sweepTime) % 2;
-    return k <= 1 ? k : 2 - k;
+    return Math.min(1, sec / C.fire.sweepTime);
   }
 
   function frame(t) {
     if (!hold) return;
-    G.setFireGauge(gaugeAt((t - hold.t0) / 1000));
+    var v = gaugeAt((t - hold.t0) / 1000);
+    if (v >= 1) { shoot(1); return; }                          // 끝까지 참 → 손을 안 떼도 최대 거리로 자동 발사
+    G.setFireGauge(v);
     requestAnimationFrame(frame);
   }
 
@@ -40,10 +41,13 @@
     requestAnimationFrame(frame);
   });
 
-  // 뗐을 때 = 결정
+  // 뗐을 때 = 결정 (자동 발사 뒤라 hold 가 비어 있으면 아무 일 없음 → 두 번 안 쏨)
   function decide(e) {
     if (!hold || e.pointerId !== hold.id) return;
-    var v = gaugeAt((performance.now() - hold.t0) / 1000);
+    shoot(gaugeAt((performance.now() - hold.t0) / 1000));
+  }
+  // 거리 확정 + 어뢰 발사 (떼거나, 끝까지 차거나)
+  function shoot(v) {
     hold = null;
     btn.classList.remove('held');
     G.setFireGauge(v);

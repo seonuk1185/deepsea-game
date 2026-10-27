@@ -252,10 +252,11 @@
       if (shot.hold >= T.holdTime) finish();
     }
   }
-  // 끝: 잠금 풀기 + 카메라는 move.js 의 「잠수함 따라가기」가 내 잠수함으로 부드럽게 돌려 놓음
+  // 끝: 잠금 풀기 + 거리 게이지 처음으로 + 카메라는 move.js 의 「잠수함 따라가기」가 내 잠수함으로 부드럽게 돌려 놓음
   function finish() {
     shot = null;
     setBusy(false);
+    G.setFireGauge(0);                        // 발사가 끝나면 거리 게이지 비우기 (형님 지시). DELAY 숫자는 턴 넘기기 때 지움
     G.cam.follow = true;
   }
 
