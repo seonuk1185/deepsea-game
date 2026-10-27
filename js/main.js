@@ -246,7 +246,7 @@
 
   /* ---------- 곡선 계산 ----------
      출발 = 판의 잠수함 쪽 끝, 세로 가운데(= 내 잠수함 높이) → 점1 → 점2 → 점3 을 「정확히」 지나는 부드러운 곡선
-     (자연 3차 스플라인: 점마다 꺾이지 않고 매끈하게 이어짐). 점3 뒤로는 그 기울기 그대로 판 끝까지 쭉 이어짐.
+     (자연 3차 스플라인: 점마다 꺾이지 않고 매끈하게 이어짐). 곡선은 맨 끝 핀에서 끝남(그 뒤로 이어지는 선 없음).
      가로 x 는 「잠수함 쪽 끝 = 0」 기준 (왼쪽을 볼 때 뒤집는 건 그릴 때만). 어뢰 날아가기에서도 이 함수를 씀 */
   function curveSpline() {
     var k = [[0, 50]];
@@ -272,11 +272,7 @@
     sp = sp || curveSpline();
     var k = sp.k, M = sp.M, n = k.length - 1, i = 0;
     var seg = function (i) { return k[i + 1][0] - k[i][0]; };
-    if (x >= k[n][0]) {                                         // 점3 뒤: 그 자리 기울기대로 곧게
-      var hl = seg(n - 1);
-      var slope = (k[n][1] - k[n - 1][1]) / hl + hl * (M[n - 1] + 2 * M[n]) / 6;
-      return k[n][1] + slope * (x - k[n][0]);
-    }
+    if (x >= k[n][0]) return k[n][1];                           // 맨 끝 핀 뒤: 곡선은 없음(형님 지시). 어뢰 코드가 값이 필요할 때 안전하도록 끝 핀 높이를 돌려줌. 어뢰는 끝 핀 가로(sp.k[n][0])에서 끝내면 됨
     while (i < n - 1 && x > k[i + 1][0]) i++;
     var h = seg(i), t = x - k[i][0];
     var b = (k[i + 1][1] - k[i][1]) / h - h * (2 * M[i] + M[i + 1]) / 6;
@@ -286,9 +282,12 @@
   // 점 자리 + 곡선 다시 그리기
   function drawPadCurve() {
     var pts = state.pad.points, sp = curveSpline(), d = '';
-    for (var x = 0; x <= 100.001; x += 0.5) {
+    var xEnd = sp.k[sp.k.length - 1][0];                        // 맨 끝 핀 가로 = 곡선 끝
+    for (var x = 0; ; x += 0.5) {
+      if (x > xEnd) x = xEnd;
       var y = Math.min(Math.max(padCurveY(x, sp), -400), 500);  // 판 밖은 어차피 잘려서 안 보임
       d += (x ? ' L' : 'M') + padFx(x).toFixed(2) + ' ' + y.toFixed(2);
+      if (x >= xEnd) break;
     }
     var path = $('padCurve');
     if (path) path.setAttribute('d', d);
