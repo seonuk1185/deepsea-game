@@ -35,7 +35,7 @@
     <button class="menu press" id="btnPause" aria-label="일시정지"><span>Ⅱ</span></button>
     <div class="chat" id="chat" hidden><p><b>상어대장</b>그 각도로 맞출 수 있겠어? ㅋㅋ</p></div>
     <div class="mapname" id="mapName">심해 유적</div>
-    <!-- 이동 조이스틱 (지금은 모양만) -->
+    <!-- 이동 조이스틱: 손잡이를 끄는 방향으로 내 잠수함이 움직임 (move.js) -->
     <div class="joy" id="joy" aria-label="이동 조이스틱"><i></i></div>
   </div>
 
@@ -87,7 +87,7 @@
     <!-- F. 발사 / 턴 넘기기 -->
     <div class="act">
       <button class="btn fire press">발사!</button>
-      <button class="btn skip press">턴 넘기기<span class="ff"> ▶▶</span></button>
+      <button class="btn skip press" id="btnSkip">턴 넘기기<span class="ff"> ▶▶</span></button>
     </div>
   </div>
 </div>
@@ -101,5 +101,6 @@
 
 <script src="js/config.js"></script>
 <script src="js/main.js"></script>
+<script src="js/move.js"></script>
 </body>
 </html>

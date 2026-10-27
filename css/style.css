@@ -98,7 +98,10 @@ button{font:inherit;color:inherit;cursor:pointer}
   border:2px solid rgba(255,255,255,.28);background:rgba(255,255,255,.07)}
 .joy i{position:absolute;left:50%;top:50%;width:42px;height:42px;margin:-21px 0 0 -21px;border-radius:50%;
   background:rgba(255,255,255,.22);border:2px solid rgba(255,255,255,.4)}
-.joy:active i{background:rgba(255,255,255,.38)}
+/* 손잡이: 잡고 있는 동안 밝게, 놓으면 가운데로 스르륵 돌아감 */
+.joy{touch-action:none}
+.joy i{transition:transform .12s ease-out}
+.joy.held i{background:rgba(255,255,255,.38);transition:none}
 
 /* ===== 아래 금속 계기판 ===== */
 .dash{position:absolute;left:0;right:0;bottom:0;height:var(--dash-h);display:flex;gap:6px;align-items:stretch;

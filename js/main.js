@@ -1,13 +1,21 @@
 /* =========================================================
-   심해 포격전(가칭) — 게임 화면 (5단계 1번: 움직이지 않는 화면)
+   심해 포격전(가칭) — 게임 화면
    하는 일: 설정값(config.js)대로 화면을 그림 + 카메라 + 바다 끌어서 둘러보기
-   아직 없는 것: 이동·조준·발사·턴 진행 (다음 단계)
+   잠수함 이동(조이스틱)은 move.js 가 맡음
+   아직 없는 것: 조준·발사·턴 진행 (다음 단계)
    ========================================================= */
 (function () {
   'use strict';
 
   var C = window.GAME_CONFIG;
   var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------- 지금 게임 상태 (설정값을 복사해서 시작, 게임 중에 바뀜) ---------- */
+  var state = {
+    subs: C.subs.map(function (s) { var o = {}; for (var k in s) o[k] = s[k]; return o; }),
+    move: C.movement.gaugeStart      // 이동 게이지 (0~1)
+  };
+  function getSub(id) { return state.subs.filter(function (v) { return v.id === id; })[0]; }
 
   var seaView = $('seaView'), world = $('world'), worldBg = $('worldBg'), worldThings = $('worldThings');
 
@@ -58,7 +66,7 @@
     });
 
     // 잠수함 + 머리 위 이름·체력바 (+ 차례 화살표)
-    C.subs.forEach(function (s) {
+    state.subs.forEach(function (s) {
       var active = s.id === C.activeSubId;
       html += '<div class="sub ' + s.side + ' face-' + s.facing + '" id="sub-' + s.id + '" style="left:' + s.x + 'px;top:' + s.y + 'px">' +
         '<div class="tag">' +
@@ -76,7 +84,8 @@
      2. 카메라 — 세계의 어느 부분을 화면에 보여 줄지
         cam.x, cam.y = 화면 왼쪽 위 모서리가 보는 세계 좌표
      ========================================================= */
-  var cam = { x: 0, y: 0, zoom: 1, viewW: 0, viewH: 0 };
+  // follow = 카메라가 움직이는 잠수함을 따라갈지 (바다를 손으로 밀면 꺼지고, 조이스틱을 잡으면 다시 켜짐)
+  var cam = { x: 0, y: 0, zoom: 1, viewW: 0, viewH: 0, follow: false, panning: false };
 
   function measureCamera() {
     cam.viewW = seaView.clientWidth;
@@ -109,18 +118,23 @@
     applyCamera();
   }
   function focusOnSub(id) {
-    var s = C.subs.filter(function (v) { return v.id === id; })[0];
+    var s = getSub(id);
     if (s) focusOn(s.x, s.y);
   }
 
-  /* ---------- 바다를 손가락으로 끌면 화면이 움직임 (둘러보기만) ---------- */
+  /* ---------- 바다를 손가락으로 끌면 화면이 움직임 (둘러보기만) ----------
+     조이스틱은 바다 창문 밖(HUD)에 있어서 조이스틱 손가락은 여기로 안 옴.
+     조이스틱을 누른 채 다른 손가락으로 바다를 밀어도 됨 (첫 손가락이 아니어도 받음) */
   function enablePanning() {
     var drag = null;
     seaView.addEventListener('pointerdown', function (e) {
-      if (!e.isPrimary || drag) return;
+      if (drag) return;                                        // 바다는 한 손가락만
+      if (e.pointerType === 'mouse' && e.button !== 0) return; // 마우스는 왼쪽 버튼만
       drag = { id: e.pointerId, x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y };
       seaView.setPointerCapture(e.pointerId);
       seaView.classList.add('dragging');
+      cam.follow = false;     // 직접 둘러보는 중엔 카메라가 잠수함을 쫓지 않음
+      cam.panning = true;
     });
     seaView.addEventListener('pointermove', function (e) {
       if (!drag || e.pointerId !== drag.id) return;
@@ -131,6 +145,7 @@
     function end(e) {
       if (!drag || e.pointerId !== drag.id) return;
       drag = null;
+      cam.panning = false;
       seaView.classList.remove('dragging');
     }
     seaView.addEventListener('pointerup', end);
@@ -157,14 +172,12 @@
     $('flowBar').style.width = Math.round(C.current.strength * 100) + '%';
 
     // 이동 / 에너지
-    var mv = $('moveBar');
-    mv.style.width = 'calc((100% - 6px) * ' + C.move + ')';
-    mv.classList.toggle('low', C.move <= 0.2);
+    setMoveGauge(state.move);
     $('energyBar').style.width = 'calc((100% - 6px) * ' + C.energy / 100 + ')';
     $('energyNum').textContent = C.energy;
 
     // 내 잠수함 얼굴 창
-    var me = C.subs.filter(function (s) { return s.side === 'me'; })[0];
+    var me = state.subs.filter(function (s) { return s.side === 'me'; })[0];
     $('faceWin').innerHTML = subSvg(me ? me.color : 'yellow', false);
     $('faceName').textContent = C.character.name;
 
@@ -243,6 +256,32 @@
     return d;
   }
 
+  /* ---------- 움직일 때 쓰는 화면 바꾸기 (move.js 가 부름) ---------- */
+  // 이동 게이지 막대 (0~1). 20% 이하면 노란색
+  function setMoveGauge(v) {
+    var mv = $('moveBar');
+    mv.style.width = 'calc((100% - 6px) * ' + v.toFixed(4) + ')';
+    mv.classList.toggle('low', v <= 0.2);
+  }
+  // 잠수함 그림을 지금 좌표로 옮김 (이름·체력바·화살표는 잠수함에 붙어 있어 같이 움직임)
+  function placeSub(id) {
+    var s = getSub(id), el = $('sub-' + id);
+    if (!s || !el) return;
+    el.style.left = s.x.toFixed(2) + 'px';
+    el.style.top = s.y.toFixed(2) + 'px';
+  }
+  // 잠수함이 바라보는 쪽 바꾸기 + 내 잠수함이면 궤도 판도 좌우 반전
+  function setFacing(id, facing) {
+    var s = getSub(id), el = $('sub-' + id);
+    if (!s || s.facing === facing) return;
+    s.facing = facing;
+    if (el) {
+      el.classList.remove('face-left', 'face-right');
+      el.classList.add('face-' + facing);
+    }
+    if (s.side === 'me') { buildPad(facing); fitScaleLabels(); }
+  }
+
   /* ---------- 턴 시작 연출: 계기판 테두리 번쩍 ---------- */
   function playTurnStart() {
     var dash = $('dash');
@@ -283,7 +322,11 @@
   }
 
   // 다음 단계에서 쓸 기능을 밖에서 부를 수 있게 열어 둠
-  window.Game = { cam: cam, focusOn: focusOn, focusOnSub: focusOnSub, playTurnStart: playTurnStart };
+  window.Game = {
+    cam: cam, state: state, getSub: getSub,
+    applyCamera: applyCamera, focusOn: focusOn, focusOnSub: focusOnSub, playTurnStart: playTurnStart,
+    setMoveGauge: setMoveGauge, placeSub: placeSub, setFacing: setFacing
+  };
 
   init();
 })();
