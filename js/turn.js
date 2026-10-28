@@ -18,8 +18,9 @@
    3) 차례가 바뀔 때마다: 카메라를 차례 잠수함으로, 내 차례면 계기판 번쩍(playTurnStart), 상대 차례면 「상대 차례」 작은 표시
       + 내 조작 잠금 표시(조이스틱·발사·턴 넘기기 흐리게. 궤도 판 점은 상대 차례에도 미리 맞춰 둘 수 있음)
       + 이미 쏜 차례면 발사 버튼만 흐리게 (.fired)
-   4) 상대 차례 대신 해 주기 = 「컴퓨터 상대 자리」 (Game.bots). 지금은 임시로 아무것도 안 하고 2초 뒤 턴 넘기기 쪽지만 냄
-      ③ 단계에서 진짜 컴퓨터 상대가 이 자리에 같은 모양(쪽지를 돌려주는 함수)으로 들어오면 됨
+   4) 상대 차례 대신 해 주기 = 「컴퓨터 상대 자리」 (Game.bots). (③) 진짜 컴퓨터 상대 = bot.js 가 이 자리에 들어옴
+      컴퓨터 상대도 사람과 같은 쪽지만 냄 → 나중에 인터넷 상대·서버 쪽 컴퓨터 상대로 바꿔 끼우기만 하면 됨
+      「상대 차례」 표시에 지금 하는 일(생각하는 중·움직이는 중·조준하는 중)을 붙임
    5) 판 끝: 승리 / 패배 / 비김 + 「다시 하기」 (Game.restart = 새 판, 새 주사위 번호)
    main.js·move.js·fire.js·torpedo.js 다음에 불러야 함 (window.Game 을 씀)
    ========================================================= */
@@ -33,15 +34,27 @@
   var overBox = $('overBox');
 
   /* ---------- 컴퓨터 상대 자리 (Game.bots) ----------
-     bots[잠수함 id] (없으면 bots.default) = function (심판 상태, 판 시계, 잠수함 id) → 낼 쪽지 하나 또는 null
-     시계가 돌 때마다(0.1초쯤) 불림. 쪽지를 돌려주면 이 파일이 Game.submit 으로 냄 (사람이 내는 쪽지와 똑같은 창구)
-     (임시) 기다리기만 하다가 enemyPassDelay(2초) 뒤에 턴 넘기기 */
-  function placeholderBot(state, now, id) {
-    if (now - state.turn.startAt >= (T.enemyPassDelay != null ? T.enemyPassDelay : 2) * 1000) return { type: 'endTurn', subId: id };
-    return null;
-  }
+     bots[잠수함 id] (없으면 bots.default) = function (심판 상태, 판 시계, 잠수함 id) → 낼 쪽지 하나 / 쪽지 묶음(배열) / null
+     (③) 화면마다(requestAnimationFrame) + 시계가 돌 때마다(0.1초) 불림 → 이동을 조이스틱처럼 화면마다 부드럽게 낼 수 있게
+       (탭이 느려져 화면이 드물게 그려져도 0.1초 시계로는 계속 불림 — 컴퓨터 상대는 지난번부터 지난 시간만큼 걸음을 냄)
+     쪽지를 돌려주면 이 파일이 Game.submit 으로 냄 (사람이 내는 쪽지와 똑같은 창구)
+     안 부르는 때: 판 끝·판 끝 화면 기다리는 중·어뢰를 보여 주는 중·시간 끝(그때는 시간 끝 쪽지가 먼저)
+     진짜 컴퓨터 상대는 bot.js (이 파일 다음에 불러서 bots.default 에 들어감). 없으면 상대는 시간 끝에 넘어감 */
   G.bots = G.bots || {};
-  if (!G.bots.default) G.bots.default = placeholderBot;
+  function botFor(id) { return G.bots[id] || G.bots.default || null; }
+  function runBot(now) {
+    var t = rs.turn;
+    if (overShown || rs.over || waitingOver || G.state.busy) return;
+    if (t.activeId === G.mySubId || now >= t.deadline) return;
+    var bot = botFor(t.activeId);
+    var out = bot && bot(rs, now, t.activeId);
+    if (!out) return;
+    (Array.isArray(out) ? out : [out]).forEach(function (slip) { if (slip) G.submit(slip); });
+  }
+  function botFrame() {
+    runBot(G.matchNow());
+    requestAnimationFrame(botFrame);
+  }
 
   /* ---------- 시계 + 컴퓨터 상대 자리 — 0.1초마다 ----------
      (requestAnimationFrame 대신 setInterval: 탭이 느려져도 시간 끝은 제때 오게. 시계 숫자는 0.1초면 충분) */
@@ -59,13 +72,10 @@
       G.submit({ type: 'timeout', subId: t.activeId, at: Math.max(Math.round(now), t.deadline) });
       return;
     }
-    if (t.activeId !== G.mySubId) {                               // 상대(또는 이 화면이 조종 안 하는 잠수함) 차례
-      var bot = G.bots[t.activeId] || G.bots.default;
-      var slip = bot && bot(rs, now, t.activeId);
-      if (slip) G.submit(slip);
-    }
+    runBot(now);                                                  // 상대(또는 이 화면이 조종 안 하는 잠수함) 차례 → 컴퓨터 상대
   }
   setInterval(tick, 100);
+  requestAnimationFrame(botFrame);
 
   /* ---------- 어뢰 재생 끝 (torpedo.js 가 부름) → 판 끝 화면 / (날아가는 중 시간이 끝났으면) 시간 끝 쪽지 ----------
      (2026-10-28) 예전처럼 저절로 턴 넘기기 쪽지를 내지 않음 → 시간·게이지가 남았으면 다시 움직일 수 있음 */
@@ -106,7 +116,8 @@
     var other = !rs.over && a && t.activeId !== G.mySubId;
     if (other) {
       var friend = me && a.team === me.team;
-      turnTag.innerHTML = '<b>' + (friend ? '우리 편 차례' : '상대 차례') + '</b> ' + a.name;
+      var bot = botFor(a.id), doing = bot && bot.status ? bot.status(rs, a.id) : '';   // (③) 컴퓨터 상대가 지금 하는 일
+      turnTag.innerHTML = '<b>' + (friend ? '우리 편 차례' : '상대 차례') + '</b> ' + a.name + (doing ? ' · ' + doing : '');
       turnTag.classList.toggle('friend', !!friend);
     }
     turnTag.hidden = !other;

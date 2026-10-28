@@ -29,15 +29,35 @@ window.GAME_CONFIG = {
   ],
   turnOrder: ['me', 'enemy'],   // 차례 순서 (여러 명이면 여기에 더 적으면 됨). 격침된 잠수함은 건너뜀
   activeSubId: 'me',   // 첫 차례 잠수함 (머리 위 화살표)
-  mySubId: 'me',       // (14차) 이 화면(이 컴퓨터)에서 내가 조종하는 잠수함. 나머지는 컴퓨터 상대 자리 (지금은 2초 뒤 턴만 넘김)
+  mySubId: 'me',       // (14차) 이 화면(이 컴퓨터)에서 내가 조종하는 잠수함. 나머지는 컴퓨터 상대 (아래 bot, bot.js)
   cameraOn: 'me',      // 처음에 카메라가 비추는 잠수함
 
   // (14차) 턴 + 시계 — 2단계 게임규칙: 「번갈아 한 번씩, 제한시간 20초, 다 되면 자동으로 턴 넘김」 「무브게이지 매 턴 가득」 「조류 매 턴 무작위」
   turn: {
     timeLimit: 20,       // 한 차례 시간 (초). 계기판 큰 숫자. 0 이 되면 저절로 다음 차례. 어뢰를 쏴도 시계는 계속 감 (2026-10-28 형님 결정)
     rollCurrent: true,   // 차례마다(첫 차례 포함, 2026-10-28) 조류(방향·세기)를 같은 주사위로 새로 굴림. false = config 아래 current 그대로
-    enemyPassDelay: 2,   // (임시, ③ 컴퓨터 상대 전까지) 상대 차례가 오면 아무것도 안 하고 이 시간(초) 뒤에 턴 넘김
     fireEndDelay: 0      // 판을 끝내는 어뢰의 재생(터진 자리 머묾 포함)이 끝나고 승리/패배 화면을 띄우기 전 더 기다리는 시간 (초)
+  },
+
+  // (③) 컴퓨터 상대 (bot.js) — 내가 조종하지 않는 잠수함은 전부 컴퓨터 상대가 맡음
+  //   level = 'easy'(쉬움) / 'normal'(보통) / 'hard'(어려움). 2단계 게임규칙 「너무 잘 맞추면 재미없음 → 3단계」
+  //   aimError.pin  = 점 높이 손 떨림 (판 높이 %, 종 모양 오차의 크기). 클수록 위아래로 빗나감
+  //   aimError.dist = 거리 손 떨림 (거리 칸). 1칸 = 맵 48, 폭발 범위 반지름 = 맵 120
+  //   currentSense  = 조류를 얼마나 감안하나 (1 = 정확히, 0.4 = 조금만 → 조류가 세면 밀려서 빗나감)
+  //   thinkTime / aimTime = 「생각하는 중」 / 조준하며 뜸 들이는 시간 (초, [가장 짧게, 가장 길게] 사이에서 무작위)
+  //   moveTime = 쏘기 전 한 번에 움직이는 시간 한도 (초). 빠르기는 사람 조이스틱과 같음(movement.speed) → 2초 ≈ 맵 260
+  //   wander   = 쏜 뒤 시간·게이지가 남으면 살짝 비켜 설 확률 (0~1)
+  //   (node 로 판 20번씩 돌려 본 맞힘률은 README 「컴퓨터 상대」)
+  bot: {
+    level: 'normal',
+    levels: {
+      easy:   { aimError: { pin: 12, dist: 2.4 }, currentSense: 0.4, thinkTime: [1.2, 2.0], aimTime: [0.8, 1.4], moveTime: 2.0, wander: 0.3 },
+      normal: { aimError: { pin: 8,  dist: 1.8 }, currentSense: 0.8, thinkTime: [0.8, 1.4], aimTime: [0.5, 1.0], moveTime: 2.0, wander: 0.5 },
+      hard:   { aimError: { pin: 3,  dist: 0.7 }, currentSense: 1,    thinkTime: [0.5, 0.9], aimTime: [0.3, 0.6], moveTime: 2.5, wander: 0.7 }
+    },
+    panicTime: 4,        // 마감까지 이만큼(초)보다 적게 남았는데 아직 안 쐈으면 → 남은 생각·이동 건너뛰고 바로 조준·발사
+    endTime: 1.5,        // 쏜 뒤 마감까지 이만큼(초)보다 적게 남았으면 → 바로 턴 넘기기
+    endPause: [0.4, 0.8] // 할 일을 다 하고 턴 넘기기 전 잠깐 (초)
   },
 
   // 보급상자 (세계 좌표)
