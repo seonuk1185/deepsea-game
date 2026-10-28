@@ -9,6 +9,7 @@
    6) (12차) 키보드 화살표 = 화면(바다) 둘러보기: 손가락으로 바다를 미는 것과 같음 (잠수함 따라가기 멈춤, Game.setPanKeys)
       둘러본 뒤에는 WASD 로 움직여도 카메라가 안 돌아옴 (cam.manual). 조이스틱을 잡거나 어뢰가 끝나면 다시 따라감
    7) (13차) 「내 잠수함으로 화면 돌아가기」 키 (Game.recenter): 둘러보던 화면을 내 잠수함으로 부드럽게 돌려놓고 다시 따라가게 함
+   8) (14차) 내 차례일 때만 움직임·턴 넘기기 (Game.canAct). 카메라는 「지금 차례인 잠수함」을 따라감 (상대 차례면 상대 잠수함)
    이 파일은 잠수함 자리·게이지를 직접 바꾸지 않음 (쪽지만 냄)
    main.js 다음에 불러야 함 (window.Game 을 씀)
    ========================================================= */
@@ -71,7 +72,7 @@
           (예전 조이스틱과 계산이 한 걸음 한 걸음 똑같아서, 벽에 막히며 미끄러질 때도 게이지가 똑같이 줄어듦)
           온라인 때는 이 걸음들을 0.1초쯤 모아 쪽지 한 장(steps 여러 개)으로 보내면 됨 — 쪽지 모양은 이미 그렇게 되어 있음
      ========================================================= */
-  var meId = C.activeSubId;   // 이 화면이 조종하는 잠수함 (지금은 늘 내 잠수함)
+  var meId = G.mySubId;       // 이 화면이 조종하는 잠수함 (config.js mySubId)
 
   // 키보드로 누르고 있는 방향 (-1 / 0 / 1). keys.js 가 Game.setMoveKeys 로 넣어 줌. 둘 다 누르면 대각선
   var keyDir = { x: 0, y: 0 };
@@ -118,8 +119,8 @@
     if (!s) return;
     var inp = readInput();          // 조이스틱 또는 키보드
 
-    // G.state.busy = 어뢰를 보여 주는 중 (torpedo.js) → 그동안은 못 움직임. 게이지가 바닥이면 쪽지를 안 냄
-    if (inp.power > 0 && s.move > 0 && !G.state.busy) {
+    // 내 차례 + 아직 안 쐈음 + 어뢰를 보여 주는 중이 아님(G.canAct) 일 때만. 게이지가 바닥이면 쪽지를 안 냄
+    if (inp.power > 0 && s.move > 0 && G.canAct()) {
       // 바라보는 쪽: 좌우로 충분히 밀었을 때만 돌아봄 (거의 위아래로만 밀면 그대로)
       var hx = inp.x * inp.power, facing = s.facing;
       if (hx > M.faceThreshold) facing = 'right';
@@ -140,7 +141,10 @@
       G.applyCamera();
     }
 
-    // 카메라 따라가기: 잠수함이 화면 가운데 오도록 부드럽게 (바다를 직접 밀고 있으면 안 함)
+    // 카메라 따라가기: 지금 차례인 잠수함이 화면 가운데 오도록 부드럽게 (바다를 직접 밀고 있으면 안 함)
+    //   (14차) 내 차례면 내 잠수함, 상대 차례면 상대 잠수함
+    var a = G.getSub(G.rs.turn.activeId);
+    if (a) s = a;
     if (cam.follow && !cam.panning && cam.viewW) {
       var tx = s.x - cam.viewW / cam.zoom / 2, ty = s.y - cam.viewH / cam.zoom / 2;
       var k = 1 - Math.exp(-M.cameraFollow * dt);
@@ -161,10 +165,10 @@
   }
   requestAnimationFrame(frame);
 
-  /* ---------- 턴 넘기기 버튼 → 「턴 넘기기 주문서」 ----------
-     (임시) 지금은 심판이 이동 게이지만 다시 가득 채우고, 화면이 거리 게이지·DELAY 를 처음으로 (main.js onResult('endTurn'))
-     턴 진행(②)을 만들면 심판이 여기서 다음 차례로 넘김 */
+  /* ---------- 턴 넘기기 버튼(PC Tab) → 「턴 넘기기 주문서」 → 심판이 다음 차례로 (14차) ----------
+     내 차례일 때만 (상대 차례·쏜 뒤·어뢰 재생 중엔 아무 일 없음 — 쏜 뒤엔 재생이 끝나면 저절로 넘어감) */
   function endTurn() {
+    if (!G.canAct()) return;
     G.submit({ type: 'endTurn', subId: meId });
   }
   document.getElementById('btnSkip').addEventListener('click', endTurn);

@@ -18,6 +18,15 @@
                   심판이 한 걸음씩 「게이지 남은 만큼만, 맵 안으로만」 옮기고 실제로 간 거리만큼 게이지를 깎음
      발사:      { type: 'fire',    subId: 'me', points: [[가로 칸, 세로 %], x3], distance: 거리 칸(0 ~ 최대 거리) }
      턴 넘기기: { type: 'endTurn', subId: 'me' }
+     시간 끝:   { type: 'timeout', subId: 지금 차례 }   (14차) 20초가 다 됐을 때 화면이 냄
+     모든 쪽지에는 at = 「판 시계」(판 시작부터 지난 1/1000초)가 붙음 (화면 창구 Game.submit 이 찍어 줌)
+
+   ── 턴 시계 (14차) — 왜 이렇게 했나 ──
+     심판은 시계를 「보지」 않음 (performance.now 를 안 씀). 대신 차례마다 「마감 시각」(turn.deadline = 시작 at + 20초)을 숫자로 적어 둠
+     화면은 자기 시계로 「마감까지 남은 초」를 계기판에 보여 주기만 하고, 0 이 되면 「시간 끝(timeout)」 쪽지를 냄
+     심판은 그 쪽지의 at 이 마감 시각을 지났는지만 검사 → 지났으면 다음 차례로. 마감 뒤에 온 이동·발사 쪽지는 거절
+     → 어느 컴퓨터든 같은 쪽지 기록(at 포함)이면 똑같은 순간에 차례가 넘어감. 온라인 때는 서버가 at 을 찍고 timeout 도 서버가 냄
+     어뢰를 쏘면 그 차례 시계는 멈춤 (turn.fired). 어뢰 재생이 끝나면 화면이 「턴 넘기기」 쪽지를 내서 다음 차례로
    ========================================================= */
 (function (root) {
   'use strict';
@@ -37,8 +46,8 @@
   // 정수 주사위: lo ~ hi 중 하나
   function randomInt(state, lo, hi) { return lo + Math.floor(random(state) * (hi - lo + 1)); }
 
-  // 조류 새로 굴리기 (방향 4가지 + 세기 0~5). 지금은 config.js 에 정한 조류를 그대로 써서 아직 부르는 곳 없음.
-  //   ② 턴 단계에서 「턴마다 조류 바뀜」을 넣을 때 여기서 굴림 → 모든 컴퓨터에서 같은 조류
+  // 조류 새로 굴리기 (방향 4가지 + 세기 0~5). (14차) 차례가 바뀔 때마다 여기서 굴림
+  //   (2단계 게임규칙: 「매 턴 방향·세기 무작위」, 형님 확정) → 같은 주사위라 모든 컴퓨터에서 같은 조류. 첫 차례만 config.js current 값 그대로
   var CURRENT_DIRS = ['left', 'right', 'up', 'down'];
   function rollCurrent(state) {
     state.current = { dir: CURRENT_DIRS[randomInt(state, 0, 3)], strength: randomInt(state, 0, 5) };
@@ -66,16 +75,24 @@
     // 차례 순서: config.js turnOrder 가 있으면 그 순서, 없으면 잠수함 적힌 순서. 여러 명·여러 팀 그대로 됨
     var order = (C.turnOrder || subs.map(function (s) { return s.id; })).slice();
     var active = C.activeSubId || order[0];
-    return {
+    var state = {
       seed: seed >>> 0,
       rng: seed >>> 0,                             // 지금 주사위 번호 (굴릴 때마다 바뀜)
       subs: subs,
       current: { dir: C.current.dir, strength: clamp(Math.round(C.current.strength || 0), 0, 5) },
-      // 차례 정보 (자료만. 차례 돌리기·20초 시계는 ② 단계에서)
-      turn: { order: order, index: Math.max(0, order.indexOf(active)), activeId: active, number: 1 },
+      // 차례 정보 (14차): 순서표·지금 몇 번째·지금 차례 잠수함·턴 번호
+      //   + 시계(limit = 한 차례 시간, startAt·deadline = 시작·마감 시각, 전부 판 시계 1/1000초) + 남은 발사 수·쐈나(쏜 시각)
+      turn: { order: order, index: Math.max(0, order.indexOf(active)), activeId: active, number: 1,
+              limit: turnLimitMs(C), startAt: 0, deadline: 0, shotsLeft: 0, fired: false, firedAt: null },
+      over: null,                                  // 판 끝 = { winner: 이긴 팀 이름 (모두 격침이면 null = 비김), at }
       log: []                                      // 받은 주문서 기록 (같은 seed 로 처음부터 다시 돌리면 똑같은 판이 나옴)
     };
+    beginTurn(state, 0, C, true);                  // 첫 차례 시작 (판 시계 0). 첫 차례는 조류를 안 굴림 (config.js 값)
+    return state;
   }
+
+  // 한 차례 시간 (1/1000초) = config.js turn.timeLimit (초). 2단계 게임규칙 「제한시간 20초, 다 되면 자동으로 턴 넘김」
+  function turnLimitMs(C) { return Math.round(((C.turn && C.turn.timeLimit) || 20) * 1000); }
 
   function getSub(state, id) {
     for (var i = 0; i < state.subs.length; i++) if (state.subs[i].id === id) return state.subs[i];
@@ -83,9 +100,23 @@
   }
 
   /* =========================================================
-     3. 차례 순서 도우미 (자료만 — 실제 턴 진행은 ② 단계)
-        nextTurn: 순서표에서 다음 차례인 「살아 있는」 잠수함으로 넘김. 1:1·개인전·팀전 모두 같은 표로
+     3. 차례 진행 (14차)
+        nextTurn: 순서표에서 다음 차례인 「살아 있는」 잠수함으로 넘김 (격침된 잠수함은 건너뜀). 1:1·개인전·팀전 모두 같은 표로
+        beginTurn: 차례 시작 준비 — 그 잠수함 이동 게이지 가득(2단계 규칙 「매 턴 가득 참」), 조류 새로 굴림, 마감 시각, 발사 1번
      ========================================================= */
+  function beginTurn(state, at, C, first) {
+    var t = state.turn, s = getSub(state, t.activeId);
+    if (s) s.move = C.movement.gaugeStart;
+    if (!first && !(C.turn && C.turn.rollCurrent === false)) rollCurrent(state);
+    t.limit = turnLimitMs(C);
+    t.startAt = at;
+    t.deadline = at + t.limit;
+    t.shotsLeft = 1;                               // 한 차례에 한 발 (나중에 아이템 「2연발」이 이 숫자를 2로)
+    t.fired = false;                               // 다 쐈으면 true → 그 차례 시계 멈춤 + 이동·발사 잠김 → 어뢰 재생 끝나면 턴 넘기기
+    t.firedAt = null;
+  }
+  // 아직 시간이 남았나 (at 이 없는 쪽지는 검사 안 함 — 확인용·옛 기록)
+  function inTime(state, at) { return at == null || !(at > state.turn.deadline); }
   function nextTurn(state) {
     var t = state.turn, n = t.order.length;
     for (var k = 1; k <= n; k++) {
@@ -267,10 +298,18 @@
      ========================================================= */
   function apply(state, action, C) {
     if (!action || typeof action !== 'object') return { ok: false, why: '주문서 없음' };
+    if (state.over) return { ok: false, why: '판 끝남' };
     var sub = getSub(state, action.subId);
     if (!sub) return { ok: false, why: '없는 잠수함' };
     if (sub.id !== state.turn.activeId) return { ok: false, why: '차례 아님' };
-    var res;
+    var t = state.turn, res;
+    var at = action.at == null || !isFinite(+action.at) ? null : +action.at;
+
+    if (action.type === 'move' || action.type === 'fire') {
+      if (sub.sunk) return { ok: false, why: '격침됨' };           // 격침된 잠수함은 못 움직이고 못 쏨
+      if (t.fired) return { ok: false, why: '이미 쏨' };           // 쏜 뒤엔 그 차례에 이동·발사 못 함 (어뢰 재생이 끝나면 턴 넘김)
+      if (!inTime(state, at)) return { ok: false, why: '시간 끝' }; // 마감 시각 뒤에 온 쪽지
+    }
 
     if (action.type === 'move') {
       // 게이지가 바닥이면 돌아보기도 안 됨 (예전 조이스틱과 같음)
@@ -281,6 +320,7 @@
       res = { ok: true, type: 'move', subId: sub.id, x: sub.x, y: sub.y, facing: sub.facing, move: sub.move, moved: moved };
 
     } else if (action.type === 'fire') {
+      if (t.shotsLeft <= 0) return { ok: false, why: '발사 횟수 없음' };
       var ch = C.character;
       var points = cleanPoints(action.points, ch);
       var distance = clamp(Math.round(+action.distance || 0), 0, ch.limit.right);   // 거리는 정수 칸 (화면 DELAY 숫자와 같음)
@@ -288,12 +328,25 @@
       // 결과를 진짜 상태에 바로 적용 (화면은 시간에 맞춰 천천히 보여 줌)
       shot.events.forEach(function (ev) { getSub(state, ev.id).hp = ev.hpAfter; });
       shot.sunk.forEach(function (id) { getSub(state, id).sunk = true; });
-      res = { ok: true, type: 'fire', subId: sub.id, points: points, distance: distance, shot: shot };
+      t.shotsLeft--;
+      if (t.shotsLeft <= 0) { t.fired = true; t.firedAt = at != null ? at : t.startAt; }   // 다 쐈으면 시계 멈춤
+      // 한 팀만 남았으면(또는 모두 격침) 판 끝 — 결과는 지금 정해지고, 화면은 어뢰 재생이 끝난 뒤 보여 줌
+      var teams = aliveTeams(state);
+      if (teams.length <= 1) state.over = { winner: teams.length ? teams[0] : null, at: t.firedAt };
+      res = { ok: true, type: 'fire', subId: sub.id, points: points, distance: distance, shot: shot, over: state.over };
 
-    } else if (action.type === 'endTurn') {
-      // (임시) 지금은 차례를 안 넘기고 이동 게이지만 다시 가득. ② 턴 단계에서 여기서 nextTurn(state) 을 부름
-      sub.move = C.movement.gaugeStart;
-      res = { ok: true, type: 'endTurn', subId: sub.id, move: sub.move, activeId: state.turn.activeId };
+    } else if (action.type === 'endTurn' || action.type === 'timeout') {
+      // 턴 넘기기 (버튼·Tab·어뢰 재생 끝·컴퓨터 상대) / 시간 끝 (마감 시각이 지났을 때만 받음)
+      //   격침된 잠수함도 자기 차례를 넘길 수는 있음 (내가 쏜 어뢰에 내가 격침된 뒤 재생이 끝났을 때)
+      if (action.type === 'timeout' && t.fired) return { ok: false, why: '쏜 뒤엔 시계 멈춤' };
+      if (action.type === 'timeout' && at != null && at < t.deadline) return { ok: false, why: '아직 시간 남음' };
+      // 다음 차례 시작 시각: 쪽지의 at (없으면 시간 끝 = 마감 시각, 턴 넘기기 = 이번 차례 시작 시각 → 그래도 늘 같은 결과)
+      var startAt = at != null ? Math.max(at, t.startAt) : (action.type === 'timeout' ? t.deadline : t.startAt);
+      var from = sub.id, next = nextTurn(state);
+      if (next) beginTurn(state, startAt, C, false);
+      res = { ok: true, type: action.type, subId: from, activeId: t.activeId, number: t.number,
+              move: next ? getSub(state, next).move : 0, current: { dir: state.current.dir, strength: state.current.strength },
+              deadline: t.deadline };
 
     } else {
       return { ok: false, why: '모르는 주문서: ' + action.type };
@@ -313,7 +366,7 @@
   var Rules = {
     createState: createState, apply: apply, replay: replay, getSub: getSub,
     random: random, randomInt: randomInt, rollCurrent: rollCurrent,
-    nextTurn: nextTurn, aliveTeams: aliveTeams,
+    nextTurn: nextTurn, beginTurn: beginTurn, aliveTeams: aliveTeams,
     curveSpline: curveSpline, curveY: curveY, simulateShot: simulateShot, moveStep: moveStep
   };
   root.Rules = Rules;

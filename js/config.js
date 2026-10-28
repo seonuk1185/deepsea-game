@@ -27,9 +27,18 @@ window.GAME_CONFIG = {
     { id: 'me',    side: 'me',    team: 'A', name: '형님',     x: 300,  y: 300, hp: 82, facing: 'right', color: 'yellow' },
     { id: 'enemy', side: 'enemy', team: 'B', name: '상어대장', x: 1560, y: 240, hp: 64, facing: 'left',  color: 'red' }
   ],
-  turnOrder: ['me', 'enemy'],   // 차례 순서 (여러 명이면 여기에 더 적으면 됨). 차례 돌리기는 다음 단계(②)에서
-  activeSubId: 'me',   // 지금 차례인 잠수함 (머리 위 화살표)
+  turnOrder: ['me', 'enemy'],   // 차례 순서 (여러 명이면 여기에 더 적으면 됨). 격침된 잠수함은 건너뜀
+  activeSubId: 'me',   // 첫 차례 잠수함 (머리 위 화살표)
+  mySubId: 'me',       // (14차) 이 화면(이 컴퓨터)에서 내가 조종하는 잠수함. 나머지는 컴퓨터 상대 자리 (지금은 2초 뒤 턴만 넘김)
   cameraOn: 'me',      // 처음에 카메라가 비추는 잠수함
+
+  // (14차) 턴 + 시계 — 2단계 게임규칙: 「번갈아 한 번씩, 제한시간 20초, 다 되면 자동으로 턴 넘김」 「무브게이지 매 턴 가득」 「조류 매 턴 무작위」
+  turn: {
+    timeLimit: 20,       // 한 차례 시간 (초). 계기판 큰 숫자. 0 이 되면 저절로 다음 차례. 어뢰를 쏘면 그 차례 시계는 멈춤
+    rollCurrent: true,   // 차례가 바뀔 때마다 조류(방향·세기)를 같은 주사위로 새로 굴림. false = config 아래 current 그대로
+    enemyPassDelay: 2,   // (임시, ③ 컴퓨터 상대 전까지) 상대 차례가 오면 아무것도 안 하고 이 시간(초) 뒤에 턴 넘김
+    fireEndDelay: 0      // 어뢰 재생(터진 자리 머묾 포함)이 끝나고 다음 차례로 넘어가기 전 더 기다리는 시간 (초)
+  },
 
   // 보급상자 (세계 좌표)
   crates: [ { x: 980, y: 440 }, { x: 640, y: 180 }, { x: 1300, y: 500 } ],
@@ -184,8 +193,7 @@ window.GAME_CONFIG = {
   //       + 세기 단계 0~5 (0 = 조류 없음 → 화살표 숨김). 화살표 옆에 큰 숫자, 아래 5칸 막대에 단계만큼 불이 들어옴
   current: { dir: 'left', strength: 2 },
 
-  // 계기판 값
-  timer: 18,
+  // 계기판 값 (시간 칸은 위 turn.timeLimit)
   energy: 82,      // 에너지 = 내 체력 (0~100)
 
   // 아이템 4칸: type = double(2연발) / shield(방어막) / move(무브) / null(빈 칸)

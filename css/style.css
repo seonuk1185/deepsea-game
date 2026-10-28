@@ -79,6 +79,7 @@ button{font:inherit;color:inherit;cursor:pointer}
 .turnarrow{width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:14px solid var(--c-hp);
   filter:drop-shadow(0 0 4px rgba(255,210,63,.8));animation:bob .8s ease-in-out infinite}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.sub:not(.active) .turnarrow{display:none}   /* (14차) 화살표는 잠수함마다 있고, 지금 차례(.active)만 보임 */
 /* 보급상자 자리 */
 .crate{position:absolute;width:26px;height:22px;margin:-11px 0 0 -13px;border-radius:4px;background:#A86A2C;border:2px solid #5A3612;
   color:#FFE7B0;font:14px/18px var(--f-ui);text-align:center}
@@ -304,6 +305,45 @@ button{font:inherit;color:inherit;cursor:pointer}
 .sunkmark{font:14px/1 var(--f-title);color:#fff;background:var(--c-danger);padding:2px 6px;border-radius:var(--r-s);text-shadow:0 1px 0 #000}
 /* 어뢰가 날아가는 동안: 발사 버튼·조이스틱 흐리게 (잠김 표시) */
 .game.busy .fire,.game.busy .joy{opacity:.45}
+/* (14차) 내 차례가 아닐 때(상대 차례·쏜 뒤·판 끝): 조이스틱·발사·턴 넘기기 흐리게. 궤도 판 점은 그대로 (미리 맞춰 둘 수 있음) */
+.game.locked .fire,.game.locked .joy,.game.locked .skip{opacity:.45}
+
+/* ===== (14차) 미니맵 — 오른쪽 위, Ⅱ 단추 바로 아래 (왼쪽 위·가운데 위는 채팅 자리) =====
+   맵 모양 그대로 (가로 : 세로 = config.js world, minimap.js 가 넣음). 점은 % 자리라 크기가 바뀌어도 그대로 */
+.minimap{position:absolute;top:calc(50px + var(--safe-t));right:calc(8px + var(--safe-r));width:128px;padding:3px;border-radius:var(--r-m);
+  background:rgba(4,12,20,.62);border:1px solid #4E6375;box-shadow:var(--sh-drop);touch-action:none;cursor:pointer}
+.mm-map{position:relative;width:100%;border-radius:3px;overflow:hidden;background:linear-gradient(180deg,rgba(30,92,128,.55),rgba(8,36,58,.75));
+  outline:1px solid rgba(169,193,211,.35)}
+.mm-map i,.mm-map b{position:absolute;pointer-events:none}
+.mm-sub{width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;border:1px solid #000}
+.mm-sub.ours{background:var(--c-me)} .mm-sub.theirs{background:var(--c-enemy)}
+.mm-sub.me{width:8px;height:8px;margin:-4px 0 0 -4px;border-color:#fff}
+.mm-sub.active{animation:mmblink .7s steps(2,start) infinite}
+.mm-sub.sunk{background:#6E7A82;border-color:#2B343B;animation:none}
+@keyframes mmblink{50%{opacity:.15}}
+.mm-crate{width:4px;height:4px;margin:-2px 0 0 -2px;background:#D9944A;border-radius:1px}
+.mm-torp{width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:#FFB27A;box-shadow:0 0 3px #FF7A2E}
+.mm-torp[hidden]{display:none}
+.mm-view{border:1px solid rgba(255,255,255,.85);box-shadow:0 0 0 1px rgba(0,0,0,.35);border-radius:1px}
+
+/* (14차) 「상대 차례」 작은 표시 — 바다 오른쪽 아래 (위 가운데는 채팅 자리) */
+.turntag{position:absolute;right:calc(10px + var(--safe-r));bottom:6px;padding:3px 9px;border-radius:var(--r-full);pointer-events:none;
+  background:rgba(4,12,20,.78);border:1px solid var(--c-enemy);color:var(--c-text-2);font:13px/1.2 var(--f-ui);white-space:nowrap}
+.turntag b{color:var(--c-enemy);font-weight:400}
+.turntag.friend{border-color:var(--c-me)} .turntag.friend b{color:var(--c-me)}
+.turntag[hidden]{display:none}
+
+/* (14차) 판 끝: 승리 / 패배 / 비김 + 다시 하기 */
+.over{position:absolute;inset:0;z-index:15;display:flex;align-items:center;justify-content:center;background:rgba(2,8,14,.6)}
+.over[hidden]{display:none}
+.over-panel{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 28px 18px;border-radius:var(--r-l);
+  background:rgba(10,24,38,.96);border:1px solid #4E6375;box-shadow:var(--sh-drop)}
+.over-panel b{font:40px/1 var(--f-title);font-weight:400;color:var(--c-text);text-shadow:0 2px 0 #000}
+.over.win .over-panel b{color:var(--c-hp)} .over.lose .over-panel b{color:var(--c-enemy)}
+.over-panel p{margin:0;font:15px/1.4 var(--f-ui);color:var(--c-text-2)}
+.btn.again{margin-top:4px;padding:0 22px;height:40px;font-size:19px;background:linear-gradient(#FF9A5C,var(--c-main) 55%,#E45F16);color:var(--c-main-ink);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 3px 0 #8A3208}
+.btn.again:active{transform:translateY(3px);box-shadow:none}
 
 /* ===== 폰 (높이 600px 미만): 턴 넘기기 ▶▶ 표시는 빼서 작은 버튼에 글씨가 들어가게 ===== */
 @media (max-height:599px){
@@ -333,6 +373,10 @@ button{font:inherit;color:inherit;cursor:pointer}
   .nudge{width:38px} .nbtn{max-height:56px;font-size:16px} .ntag{font-size:13px;line-height:14px}
   .menu{width:52px;height:52px} .menu span{width:40px;height:40px;line-height:38px;font-size:18px}
   .mapname{font-size:15px} .chat{font-size:15px;line-height:22px}
+  .minimap{top:calc(58px + var(--safe-t));width:190px;padding:4px}
+  .mm-sub{width:8px;height:8px;margin:-4px 0 0 -4px} .mm-sub.me{width:11px;height:11px;margin:-5.5px 0 0 -5.5px}
+  .mm-crate{width:5px;height:5px;margin:-2.5px 0 0 -2.5px}
+  .turntag{font-size:15px;padding:4px 12px}
 }
 /* ===== PC 창 (12차): 가로 1180px 이상 + 높이 600px 이상 =====
    (흔한 PC 창: 1280×720, 1366×768 노트북의 실제 창 약 1366×650, 1920×1080 화면 125% 배율 = 약 1536×730)
@@ -344,6 +388,7 @@ button{font:inherit;color:inherit;cursor:pointer}
   .dash{justify-content:space-between}
   .pad{max-width:calc((var(--dash-h) + var(--dash-rise) - 12px) * 4.6 + var(--nudge-room,41px))}   /* 판 세로 ≈ 계기판 높이 + 솟은 높이 - 여백 12. --nudge-room = ▲▼ 띠 + 틈 (마우스 PC 는 띠가 없어서 0) */
   .fire{height:56px;font-size:28px} .skip{height:42px}
+  .minimap{width:220px}
 }
 /* 키 큰 PC 창 (높이 760 이상, 1600×900 상자 포함): 계기판을 한 번 더 높이고 양옆 부품도 조금 크게 */
 @media (min-width:1180px) and (min-height:760px) and (orientation:landscape){
@@ -367,6 +412,7 @@ button{font:inherit;color:inherit;cursor:pointer}
   .keyhelp-btn{display:block;position:absolute;right:calc(10px + var(--safe-r));bottom:6px;width:26px;height:26px;border-radius:50%;
     border:1px solid #4E6375;background:rgba(4,12,20,.7);color:var(--c-text-2);font:15px/24px var(--f-ui);text-align:center;opacity:.75}
   .keyhelp-btn:hover,.keyhelp-btn.on{opacity:1;color:var(--c-text);border-color:var(--c-sub)}
+  .turntag{right:calc(46px + var(--safe-r))}   /* (14차) 오른쪽 아래 「?」 옆으로 */
   .keyhelp{position:absolute;right:calc(10px + var(--safe-r));bottom:38px;padding:8px 12px 7px;border-radius:var(--r-m);
     background:rgba(4,12,20,.86);border:1px solid #4E6375;font:13px/1.3 var(--f-ui);color:var(--c-text-2);pointer-events:none}
   .keyhelp:not([hidden]){display:block}

@@ -5,7 +5,8 @@
    진짜 게임 상태(잠수함 자리·체력·조류·차례)는 심판(rules.js)이 들고 있음. 이 파일은 그걸 「보여 주기」만 함
    잠수함 이동(조이스틱)은 move.js 가 맡음
    궤도 판 점 끌기는 pad.js, 발사 꾹 누르기(거리 정하기)는 fire.js, 어뢰 재생(날아가기·폭발·데미지 숫자)은 torpedo.js
-   아직 없는 것: 턴 진행·컴퓨터 상대 (다음 단계)
+   (14차) 차례 진행(20초 시계·상대 차례·판 끝)은 turn.js, 미니맵은 minimap.js. 여기는 「내 차례인가」 도우미 + 다시 하기(restart)
+   아직 없는 것: 컴퓨터 상대 (다음 단계 ③ — 지금은 상대가 2초 뒤 턴만 넘김)
    rules.js 다음에 불러야 함
    ========================================================= */
 (function () {
@@ -18,6 +19,13 @@
      잠수함 자리·바라보는 쪽·체력·팀·격침·이동 게이지, 조류, 차례 정보. 화면 코드는 읽기만 하고 직접 바꾸지 않음
      (바꾸고 싶으면 주문서를 Game.submit 으로 냄) */
   var rs = R.createState(C, C.seed);
+  var mySubId = C.mySubId || 'me';   // (14차) 이 화면에서 내가 조종하는 잠수함
+
+  /* ---------- 판 시계 (14차) ----------
+     판이 시작된 뒤 지난 시간 (1/1000초). 화면 창구(submit)가 모든 쪽지에 at 으로 찍어 줌 → 심판은 이 숫자로만 시간을 판단
+     (심판은 시계를 직접 안 봄 — rules.js 맨 위 「턴 시계」 설명). 온라인 때는 서버 시계가 이 자리를 대신함 */
+  var clock0 = performance.now();
+  function matchNow() { return performance.now() - clock0; }
 
   /* ---------- 화면 쪽 상태 (내 손에서 아직 준비 중인 것 + 보여 주기용) ----------
      궤도 판: 핀 3개 [가로(거리 칸, 잠수함 쪽 끝 = 0), 세로(판 높이 %)] (캐릭터 기본 모양에서 시작) + 거리 게이지 찬 정도 (0~1)
@@ -39,6 +47,16 @@
   }
   function clamp(v, a, b) { return Math.min(Math.max(v, a), b); }
   function getSub(id) { return R.getSub(rs, id); }   // 심판이 들고 있는 잠수함 (읽기용)
+
+  /* ---------- 내 차례인가 (14차) ----------
+     isMyTurn = 지금 차례가 내 잠수함이고, 판이 안 끝났고, 내 잠수함이 살아 있음
+     canAct   = 거기에 더해 이번 차례에 아직 안 쐈고(쏘면 그 차례는 이동·발사 끝), 어뢰를 보여 주는 중이 아님
+     → 조이스틱·WASD·발사·턴 넘기기는 canAct 일 때만. 궤도 판 점(조준)은 상대 차례에도 미리 맞춰 둘 수 있음 */
+  function isMyTurn() {
+    var me = getSub(mySubId);
+    return !rs.over && rs.turn.activeId === mySubId && !!me && !me.sunk;
+  }
+  function canAct() { return isMyTurn() && !rs.turn.fired && !state.busy; }
 
   var seaView = $('seaView'), world = $('world'), worldBg = $('worldBg'), worldThings = $('worldThings');
 
@@ -88,12 +106,13 @@
       html += '<div class="crate" style="left:' + c.x + 'px;top:' + c.y + 'px">?</div>';
     });
 
-    // 잠수함 + 머리 위 이름·체력바 (+ 차례 화살표)
+    // 잠수함 + 머리 위 이름·체력바 (+ 차례 화살표: 잠수함마다 하나씩 있고, 지금 차례인 잠수함(.active)만 보임 — 14차)
     rs.subs.forEach(function (s) {
       var active = s.id === rs.turn.activeId;
-      html += '<div class="sub ' + s.side + ' face-' + s.facing + '" id="sub-' + s.id + '" style="left:' + s.x + 'px;top:' + s.y + 'px">' +
+      html += '<div class="sub ' + s.side + ' face-' + s.facing + (active ? ' active' : '') + (s.sunk ? ' sunk' : '') + '" id="sub-' + s.id + '" style="left:' + s.x + 'px;top:' + s.y + 'px">' +
         '<div class="tag">' +
-          (active ? '<div class="turnarrow" aria-label="차례"></div>' : '') +
+          '<div class="turnarrow" aria-label="차례"></div>' +
+          (s.sunk ? '<div class="sunkmark">격침</div>' : '') +
           '<div class="name">' + s.name + '</div>' +
           '<div class="minihp"><i style="width:' + s.hp + '%"></i></div>' +
         '</div>' +
@@ -182,7 +201,7 @@
      3. 계기판 채우기
      ========================================================= */
   function buildDashboard() {
-    $('timerNum').textContent = C.timer;
+    $('timerNum').textContent = Math.ceil(rs.turn.limit / 1000);   // 한 차례 시간 (config.js turn.timeLimit). 줄어드는 건 turn.js
     $('delayNum').textContent = '--';      // 아직 거리를 안 정함 (발사 꾹 누르고 떼면 숫자가 들어감)
     $('mapName').textContent = C.mapName;
 
@@ -201,7 +220,7 @@
     setCurrent(rs.current.dir, rs.current.strength);         // 조류는 심판 상태에서 (같은 주사위)
 
     // 내 잠수함 얼굴 창
-    var me = rs.subs.filter(function (s) { return s.side === 'me'; })[0];
+    var me = getSub(mySubId);
 
     // 이동 / 에너지 (세로 통)
     setMoveGauge(me ? me.move : C.movement.gaugeStart);
@@ -389,7 +408,7 @@
         el.querySelector('.tag').appendChild(mark);
       }
     }
-    if (getSub(id).side === 'me') {
+    if (id === mySubId) {
       setEnergyGauge(s.hp);
     }
   }
@@ -404,6 +423,7 @@
   var reactions = {};
   function onResult(type, fn) { (reactions[type] = reactions[type] || []).push(fn); }
   function submit(action) {
+    if (action && action.at == null) action.at = Math.round(matchNow());   // (14차) 판 시계 찍기 (심판은 이 숫자로만 시간 판단)
     var res = R.apply(rs, action, C);
     if (!res.ok) return res;                                    // 규칙에 안 맞는 쪽지는 무시 (화면도 그대로)
     (reactions[res.type] || []).forEach(function (fn) { fn(res, action); });
@@ -414,15 +434,28 @@
   onResult('move', function (res) {
     showFacing(res.subId);
     if (res.moved > 0) placeSub(res.subId);
-    if (getSub(res.subId).side === 'me') setMoveGauge(res.move);
+    if (res.subId === mySubId) setMoveGauge(res.move);
   });
-  // (임시) 턴 넘기기 결과 → 이동 게이지 다시 가득 + 거리 게이지·DELAY 처음으로 (턴 진행을 만들면 바뀜)
-  onResult('endTurn', function (res) {
-    if (getSub(res.subId).side === 'me') setMoveGauge(res.move);
+  // (14차) 차례가 바뀜 (턴 넘기기·시간 끝) → 새 차례 잠수함 머리 위 화살표 + 조류(새로 굴린 값) + 거리 게이지·DELAY 처음으로
+  //   + 내 이동 게이지 (심판이 새 차례 잠수함 게이지를 가득 채움). 카메라·번쩍·「상대 차례」 표시는 turn.js
+  function onTurnChange(res) {
+    markActive(res.activeId);
+    setCurrent(rs.current.dir, rs.current.strength);
+    var me = getSub(mySubId);
+    if (me) setMoveGauge(me.move);
     setFireGauge(0);                                            // 지난 턴에 쏜 거리 게이지 비우기
     state.shot = null;
     $('delayNum').textContent = '--';
-  });
+  }
+  onResult('endTurn', onTurnChange);
+  onResult('timeout', onTurnChange);
+  // 차례 화살표: 지금 차례 잠수함에만 .active (화살표가 통통 튐)
+  function markActive(id) {
+    rs.subs.forEach(function (s) {
+      var el = $('sub-' + s.id);
+      if (el) el.classList.toggle('active', s.id === id);
+    });
+  }
 
   /* ---------- 턴 시작 연출: 계기판 테두리 번쩍 ----------
      (12차) 계기판은 가운데(궤도 판 칸)만 위로 솟은 모양이라, 예전처럼 네모 테두리를 번쩍이면
@@ -469,6 +502,36 @@
     setTimeout(function () { dash.classList.remove('turnflash'); }, 1500);
   }
 
+  /* ---------- 다시 하기 (14차): 판 끝 화면의 「다시 하기」 → 새 판 ----------
+     심판 상태를 새로 만들어 「같은 그릇(rs)」에 갈아 끼움 (다른 파일들이 Game.rs 를 들고 있어서 그릇은 그대로 둠)
+     → 바다 그림·계기판 값·판 시계를 처음으로. 다른 파일(turn.js·minimap.js 등)은 onRestart 로 각자 처음으로 돌아감
+     seed = 새 주사위 번호 (안 주면 지금 번호 + 1 → 조류 순서가 지난 판과 달라짐) */
+  var restartFns = [];
+  function onRestart(fn) { restartFns.push(fn); }
+  function restart(seed) {
+    var fresh = R.createState(C, seed == null ? (rs.seed + 1) >>> 0 : seed);
+    Object.keys(rs).forEach(function (k) { delete rs[k]; });
+    Object.keys(fresh).forEach(function (k) { rs[k] = fresh[k]; });
+    clock0 = performance.now();
+    shown = {};
+    rs.subs.forEach(function (s) { shown[s.id] = { hp: s.hp, facing: s.facing }; });
+    state.busy = false;
+    state.shot = null;
+    buildWorld();
+    var me = getSub(mySubId);
+    setCurrent(rs.current.dir, rs.current.strength);
+    setMoveGauge(me ? me.move : C.movement.gaugeStart);
+    setEnergyGauge(me ? me.hp : C.energy);
+    $('timerNum').textContent = Math.ceil(rs.turn.limit / 1000);
+    $('delayNum').textContent = '--';
+    state.pad.fill = 0;
+    buildPad(me ? me.facing : 'right');
+    fitScaleLabels();
+    cam.follow = false; cam.manual = false;
+    focusOnSub(rs.turn.activeId);
+    restartFns.forEach(function (fn) { fn(); });
+  }
+
   /* =========================================================
      4. 시작
      ========================================================= */
@@ -488,7 +551,7 @@
     focusOnSub(C.cameraOn);
     fitScaleLabels();
     enablePanning();
-    playTurnStart();
+    // 첫 차례 연출(번쩍·화살표·카메라)은 turn.js 가 함 (14차)
 
     window.addEventListener('resize', onResize);
     window.addEventListener('orientationchange', function () { setTimeout(onResize, 300); });
@@ -503,6 +566,7 @@
   // 다음 단계에서 쓸 기능을 밖에서 부를 수 있게 열어 둠
   window.Game = {
     rs: rs, submit: submit, onResult: onResult,
+    mySubId: mySubId, isMyTurn: isMyTurn, canAct: canAct, matchNow: matchNow, restart: restart, onRestart: onRestart, markActive: markActive,
     cam: cam, state: state, getSub: getSub,
     applyCamera: applyCamera, focusOn: focusOn, focusOnSub: focusOnSub, playTurnStart: playTurnStart,
     setMoveGauge: setMoveGauge, placeSub: placeSub, showFacing: showFacing,

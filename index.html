@@ -33,6 +33,10 @@
   <!-- ===== 바다 위에 떠 있는 것들 (세계와 같이 움직이지 않음) ===== -->
   <div class="hud">
     <button class="menu press" id="btnPause" aria-label="일시정지"><span>Ⅱ</span></button>
+    <!-- (14차) 미니맵: 오른쪽 위 Ⅱ 단추 아래. 누르면 그 자리로 화면이 감 (minimap.js) -->
+    <div class="minimap" id="minimap" aria-label="미니맵"><div class="mm-map"></div></div>
+    <!-- (14차) 상대 차례일 때만 보이는 작은 표시 (turn.js). 화면 위 가운데는 채팅 자리라 오른쪽 아래에 -->
+    <div class="turntag" id="turnTag" hidden></div>
     <div class="chat" id="chat" hidden><p><b>상어대장</b>그 각도로 맞출 수 있겠어? ㅋㅋ</p></div>
     <!-- 아이템 4칸 (계기판 시간·DELAY 칸 바로 위 가로 한 줄) — main.js가 채움 -->
     <div class="items" id="items"></div>
@@ -42,6 +46,15 @@
     <!-- PC(마우스 있는 컴퓨터)에서만 보이는 키보드 안내: 오른쪽 아래 작은 「?」 → 누르면(또는 ? 키) 키 목록. 내용은 keys.js 가 채움 -->
     <button class="keyhelp-btn" id="btnKeyHelp" aria-label="키보드 안내" title="키보드 안내 (?)">?</button>
     <div class="keyhelp" id="keyHelp" hidden></div>
+  </div>
+
+  <!-- (14차) 판 끝: 승리 / 패배 / 비김 + 다시 하기 (turn.js) -->
+  <div class="over" id="overBox" hidden>
+    <div class="over-panel">
+      <b id="overTitle">승리!</b>
+      <p id="overText"></p>
+      <button class="btn again press" id="btnAgain">다시 하기</button>
+    </div>
   </div>
 
   <!-- (13차) PC 키 설정 화면: 키 안내(?) 맨 아래 「키 설정」 단추로 열림. 내용은 keys.js 가 채움 -->
@@ -126,6 +139,8 @@
 <script src="js/pad.js"></script>
 <script src="js/fire.js"></script>
 <script src="js/torpedo.js"></script>
+<script src="js/turn.js"></script>     <!-- (14차) 차례 진행 화면: 20초 시계·상대 차례·판 끝 -->
+<script src="js/minimap.js"></script>  <!-- (14차) 미니맵 -->
 <script src="js/keys.js"></script>     <!-- PC 키보드 (12차). move·pad·fire 다음에 -->
 </body>
 </html>

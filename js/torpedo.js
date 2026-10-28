@@ -8,6 +8,7 @@
    4) 끝 시간이 되면 펑!(번쩍·고리·거품·흔들림) 또는 맵 밖이면 작은 연기
    5) 카메라는 어뢰를 따라가고, 터진 자리에서 잠깐 멈췄다가 내 잠수함으로 돌아감
    6) 보여 주는 동안은 발사·이동 잠김 (한 번에 한 발). 끝나면 풀리고 주황 거리 게이지 비움
+   7) (14차) 재생이 다 끝나면 Game.afterShot(결과) 를 부름 → turn.js 가 턴 넘기기(또는 판 끝 화면)
    (거품·폭발 거품 자리만 Math.random 으로 흩뿌림 — 그림 꾸미기라서 결과와 상관없음. 컴퓨터마다 달라도 됨)
    숫자는 전부 config.js 의 torpedo 묶음. main.js 다음에 불러야 함 (window.Game 을 씀)
    ========================================================= */
@@ -203,14 +204,19 @@
     if (play.phase === 'fly') reachEnd();
     finish();
   }
-  // 끝: 잠금 풀기 + 거리 게이지 처음으로 + 카메라는 move.js 의 「잠수함 따라가기」가 내 잠수함으로 부드럽게 돌려 놓음
+  // 끝: 잠금 풀기 + 거리 게이지 처음으로 + 카메라는 move.js 의 「잠수함 따라가기」가 차례 잠수함으로 부드럽게 돌려 놓음
+  //   (14차) 그다음 turn.js 에게 「재생 끝」을 알림 → 턴 넘기기 쪽지 (또는 판 끝 화면)
   function finish() {
+    var r = play ? play.r : null;
     play = null;
     setBusy(false);
     G.setFireGauge(0);                        // 발사가 끝나면 거리 게이지 비우기 (형님 지시). DELAY 숫자는 턴 넘기기 때 지움
     G.cam.follow = true;
     G.cam.manual = false;                     // 내 잠수함으로 돌아왔으니 「직접 둘러봄」도 끝 → 다시 WASD 로 움직이면 따라감
+    if (r && G.afterShot) G.afterShot(r);
   }
+  // 다시 하기: 보여 주던 어뢰가 있으면 그냥 지움 (그림은 main.js 가 바다를 새로 그리며 지움)
+  if (G.onRestart) G.onRestart(function () { play = null; setBusy(false); });
 
   var last = 0;
   function frame(t) {
