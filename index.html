@@ -33,8 +33,13 @@
   <!-- ===== 바다 위에 떠 있는 것들 (세계와 같이 움직이지 않음) ===== -->
   <div class="hud">
     <button class="menu press" id="btnPause" aria-label="일시정지"><span><svg viewBox="0 0 14 14" aria-hidden="true"><rect x="2" y="1" width="3.5" height="12" fill="#d8f6ff"/><rect x="8.5" y="1" width="3.5" height="12" fill="#d8f6ff"/></svg></span></button>
-    <!-- (14차) 미니맵: 오른쪽 위 Ⅱ 단추 아래. 누르면 그 자리로 화면이 감 (minimap.js) -->
-    <div class="minimap" id="minimap" aria-label="미니맵"><div class="mm-map"></div></div>
+    <!-- 오른쪽 위 묶음 (Ⅱ 단추 아래): 미니맵 + 그 밑 「다음 차례 줄」 -->
+    <div class="topright">
+      <!-- (14차) 미니맵: 누르면 그 자리로 화면이 감 (minimap.js) -->
+      <div class="minimap" id="minimap" aria-label="미니맵"><div class="mm-map"></div></div>
+      <!-- (2026-10-28) 다음 차례 줄 (줄 서기 DELAY): 다음 차례가 맨 앞, 그 뒤는 DELAY 낮은 순. 칩 = 팀 색 + 첫 글자 + 4자리 점수 (turn.js) -->
+      <div class="tqueue" id="turnQueue" aria-label="다음 차례 줄"></div>
+    </div>
     <!-- (14차) 상대 차례일 때만 보이는 작은 표시 (turn.js). 화면 위 가운데는 채팅 자리라 오른쪽 아래에 -->
     <div class="turntag" id="turnTag" hidden></div>
     <div class="chat" id="chat" hidden><p><b>상어대장</b>그 각도로 맞출 수 있겠어? ㅋㅋ</p></div>
@@ -72,7 +77,7 @@
     <!-- 유리판 한 장 (양옆 낮은 칸 + 가운데 솟은 칸, 사선 어깨). 모양·청록 외곽선은 main.js buildFrame 이 계산 -->
     <div class="frame" id="dashFrame" aria-hidden="true"><div class="bgl"></div><svg id="frameLine"></svg></div>
 
-    <!-- A. 시간 (링 시계: 청록 호 = 남은 시간, main.js setClock) + DELAY -->
+    <!-- A. 시간 (링 시계: 청록 호 = 남은 시간, main.js setClock) + DLY = 내 줄 서기 DELAY 점수 4자리 (2026-10-28, turn.js) -->
     <div class="mod timer">
       <div class="clock">
         <svg viewBox="0 0 60 60" fill="none" aria-hidden="true">
@@ -94,6 +99,8 @@
       <div class="padmain">
         <div class="screen" id="padScreen"></div>
         <div class="scale" id="padScale"></div>
+        <!-- (2026-10-28) 터지는 거리 숫자 (예전엔 DLY 칸에 있었음): 판 위 구석, 잠수함 반대쪽(곡선이 끝난 뒤 빈 자리). 꾹 누르는 동안 올라감 (fire.js) -->
+        <span class="pdist" id="padDist" aria-label="터지는 거리"><em>DIST</em><b id="padDistNum">--</b></span>
       </div>
       <div class="nudge" aria-label="점 미세조정">
         <button class="nbtn press" id="btnNudgeUp" aria-label="고른 점 위로 한 칸"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2l5 7H1z" fill="#ffcf4a"/></svg></button>

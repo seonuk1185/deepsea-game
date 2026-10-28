@@ -22,6 +22,9 @@
       컴퓨터 상대도 사람과 같은 쪽지만 냄 → 나중에 인터넷 상대·서버 쪽 컴퓨터 상대로 바꿔 끼우기만 하면 됨
       「상대 차례」 표시에 지금 하는 일(생각하는 중·움직이는 중·조준하는 중)을 붙임
    5) 판 끝: 승리 / 패배 / 비김 + 「다시 하기」 (Game.restart = 새 판, 새 주사위 번호)
+   6) (2026-10-28) 줄 서기 DELAY: 계기판 DLY = 내 점수 4자리(내 차례엔 실시간으로 오름) + 미니맵 밑 「다음 차례 줄」
+      누가 다음 차례인지는 심판이 정함 (DELAY 가장 낮은 잠수함, 연속 2번까지) — 빨리 끝내면 내 차례가 또 올 수 있음
+      내 차례가 연속으로 오면 그때도 계기판 번쩍 (차례 결과가 올 때마다 presentTurn)
    main.js·move.js·fire.js·torpedo.js 다음에 불러야 함 (window.Game 을 씀)
    ========================================================= */
 (function () {
@@ -59,9 +62,31 @@
   /* ---------- 시계 + 컴퓨터 상대 자리 — 0.1초마다 ----------
      (requestAnimationFrame 대신 setInterval: 탭이 느려져도 시간 끝은 제때 오게. 시계 숫자는 0.1초면 충분) */
   var shownSec = null, overShown = false, waitingOver = false;
+
+  /* ---------- (2026-10-28) 줄 서기 DELAY 보여 주기 — 0.1초마다 ----------
+     계기판 DLY = 내 점수 4자리. 내 차례 동안은 「지금 끝내면 될 점수」로 실시간으로 올라감 (쓴 시간 0.1초 = 1점)
+       → 차례를 끝내면 그 숫자 그대로 쌓임 (심판 rules.js 가 진짜 점수를 정함. 여기는 같은 계산으로 미리 보여 주기만)
+     오른쪽 위 미니맵 밑 「다음 차례 줄」: 다음 차례가 맨 앞(밝은 테두리), 그 뒤는 점수 낮은 순. 지금 차례 칩은 깜빡 점 + 실시간 점수
+       칩 = 팀 색(우리 편 청록·상대 빨강) + 첫 글자(내 잠수함은 「나」) + 4자리 점수. 격침된 잠수함은 빠짐 */
+  var R = window.Rules, queueEl = $('turnQueue'), shownQueue = '';
+  function showDelay(now) {
+    var t = rs.turn, me = G.getSub(G.mySubId), live = !rs.over && !overShown;
+    if (me) G.setDelayNum(live && t.activeId === me.id ? R.projectedDelay(rs, C, now) : me.delay);
+    var q = R.queue(rs, C, live ? now : null), h = '';
+    if (q.length) {
+      h = '<em>NEXT</em>' + q.map(function (e) {
+        var s = G.getSub(e.id), ours = me && s.team === me.team;
+        var cls = 'tq ' + (ours ? 'ours' : 'theirs') + (e.next && live ? ' next' : '') + (e.active && live ? ' now' : '');
+        return '<span class="' + cls + '" title="' + s.name + '"><i>' + (s.id === G.mySubId ? '나' : s.name.charAt(0)) + '</i>' + G.fmtDelay(e.delay) + '</span>';
+      }).join('');
+    }
+    if (h !== shownQueue) { shownQueue = h; queueEl.innerHTML = h; }
+  }
+
   function tick() {
-    if (overShown) return;
     var t = rs.turn, now = G.matchNow();
+    showDelay(now);
+    if (overShown) return;
     var sec = Math.max(0, Math.ceil((t.deadline - now) / 1000));   // 쏜 뒤에도·어뢰가 날아가는 중에도 계속 줄어듦 (2026-10-28)
     if (sec !== shownSec) { shownSec = sec; timerNum.textContent = sec; }
     G.setClock((t.deadline - now) / t.limit);                     // (D2) 링 시계 호 = 남은 시간 비율 (0.1초마다 부드럽게 줄어듦)

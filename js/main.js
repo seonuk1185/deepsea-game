@@ -228,10 +228,11 @@
      ========================================================= */
   function buildDashboard() {
     $('timerNum').textContent = Math.ceil(rs.turn.limit / 1000);   // 한 차례 시간 (config.js turn.timeLimit). 줄어드는 건 turn.js
-    $('delayNum').textContent = '--';      // 아직 거리를 안 정함 (발사 꾹 누르고 떼면 숫자가 들어감)
+    setDelayNum(0);                        // (2026-10-28) DLY = 내 줄 서기 점수 (판 시작 = 0000). 차례 동안 오르는 건 turn.js
+    setPadDist(null);                      // 터지는 거리 (판 구석) — 아직 안 정함 「--」
     $('mapName').textContent = C.mapName;
 
-    // 아이템 4칸 (계기판 시간·DELAY 칸 바로 위 가로 한 줄)
+    // 아이템 4칸 (계기판 시간·DLY 칸 바로 위 가로 한 줄)
     $('items').innerHTML = C.items.map(function (it, i) {
       if (!it.type) return '<button class="slot" data-i="' + i + '" aria-label="빈 칸">' + ITEM_EMPTY + '</button>';
       return '<button class="slot full' + (it.selected ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + ITEM_NAMES[it.type] + '">' +
@@ -318,7 +319,19 @@
       if (big) s += '<span class="num" style="left:' + fx(u) + '%">' + u + '</span>';
     }
     $('padScale').innerHTML = s;
+    $('padDist').classList.toggle('rtl', L);   // 터지는 거리 숫자 = 잠수함 반대쪽 위 구석 (왼쪽을 보면 왼쪽 구석)
   }
+
+  /* ---------- (2026-10-28) 계기판 DLY = 내 줄 서기 DELAY 점수, 4자리 (0000 → 0180 → 2340) ----------
+     9999 를 넘으면 9999 로 보여 줌 (1초 = 10점이라 20초를 다 써도 한 차례 200점 → 50번 넘게 다 써야 넘음. 진짜 점수는 심판이 그대로 들고 있음) */
+  function fmtDelay(v) { return ('000' + Math.min(9999, Math.max(0, Math.round(v || 0)))).slice(-4); }
+  var shownDelay = null;
+  function setDelayNum(v) {
+    var s = fmtDelay(v);
+    if (s !== shownDelay) { shownDelay = s; $('delayNum').textContent = s; }
+  }
+  // 터지는 거리 숫자 (궤도 판 구석). null = 「--」 (아직 안 정함)
+  function setPadDist(v) { $('padDistNum').textContent = v == null ? '--' : Math.round(v); }
 
   /* ---------- 곡선 계산 ----------
      출발 = 판의 잠수함 쪽 끝, 세로 가운데(= 내 잠수함 높이) → 점1 → 점2 → 점3 을 「정확히」 지나는 부드러운 곡선.
@@ -464,7 +477,8 @@
     if (res.moved > 0) placeSub(res.subId);
     if (res.subId === mySubId) setMoveGauge(res.move);
   });
-  // (14차) 차례가 바뀜 (턴 넘기기·시간 끝) → 새 차례 잠수함 머리 위 화살표 + 조류(새로 굴린 값) + 거리 게이지·DELAY 처음으로
+  // (14차) 차례가 바뀜 (턴 넘기기·시간 끝) → 새 차례 잠수함 머리 위 화살표 + 조류(새로 굴린 값) + 거리 게이지·거리 숫자 처음으로
+  //   (2026-10-28) DLY 칸 = 내 쌓인 점수 (지우지 않음 — turn.js 가 0.1초마다 맞춰 줌)
   //   + 내 이동 게이지 (심판이 새 차례 잠수함 게이지를 가득 채움). 카메라·번쩍·「상대 차례」 표시는 turn.js
   function onTurnChange(res) {
     markActive(res.activeId);
@@ -473,7 +487,8 @@
     if (me) setMoveGauge(me.move);
     setFireGauge(0);                                            // 지난 턴에 쏜 거리 게이지 비우기
     state.shot = null;
-    $('delayNum').textContent = '--';
+    setPadDist(null);
+    if (me) setDelayNum(me.delay);
   }
   onResult('endTurn', onTurnChange);
   onResult('timeout', onTurnChange);
@@ -586,7 +601,8 @@
     setEnergyGauge(me ? me.hp : C.energy);
     $('timerNum').textContent = Math.ceil(rs.turn.limit / 1000);
     setClock(1);
-    $('delayNum').textContent = '--';
+    setDelayNum(0);                   // 새 판 = 점수 전부 0
+    setPadDist(null);
     state.pad.fill = 0;
     buildPad(me ? me.facing : 'right');
     fitScaleLabels();
@@ -637,7 +653,8 @@
     cam: cam, state: state, getSub: getSub,
     applyCamera: applyCamera, focusOn: focusOn, focusOnSub: focusOnSub, playTurnStart: playTurnStart, setClock: setClock,
     setMoveGauge: setMoveGauge, placeSub: placeSub, showFacing: showFacing,
-    copyPoints: copyPoints, defaultPoints: defaultPoints, padFx: padFx, u2p: u2p, unitsToWorld: unitsToWorld, padCurveY: padCurveY, curveSpline: curveSpline, setSubHp: setSubHp, setCurrent: setCurrent, selectItem: selectItem, drawPadCurve: drawPadCurve, setFireGauge: setFireGauge, gaugeToDistance: gaugeToDistance
+    copyPoints: copyPoints, defaultPoints: defaultPoints, padFx: padFx, u2p: u2p, unitsToWorld: unitsToWorld, padCurveY: padCurveY, curveSpline: curveSpline, setSubHp: setSubHp, setCurrent: setCurrent, selectItem: selectItem, drawPadCurve: drawPadCurve, setFireGauge: setFireGauge, gaugeToDistance: gaugeToDistance,
+    setDelayNum: setDelayNum, fmtDelay: fmtDelay, setPadDist: setPadDist
   };
 
   init();

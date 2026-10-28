@@ -15,6 +15,8 @@
      - 사람처럼 보이게 (손 = 아래 5): 잠깐 생각 → 1~2초 부드럽게 이동(조이스틱처럼 화면마다 걸음 쪽지) → 돌아보기
        → 잠깐 조준 → 발사를 누른 만큼 기다렸다가 쏨 → (재생이 끝나면) 시간·게이지가 남으면 살짝 비켜 섬 → 턴 넘기기
        20초 안에 넉넉히 끝냄. 시간이 모자라면 바로 쏘거나 넘김
+     - (2026-10-28) 줄 서기 DELAY: 쓴 시간만큼 점수가 쌓여 다음 차례가 늦어지니까, 못 맞힐 것 같은 차례는 서두름 (생각·조준 절반, 비켜 서기 없음)
+       조류가 어뢰 빠르기를 바꾸는 것(순풍 멀리·역풍 짧게)은 심판 계산(simulateShot)을 그대로 빌려 쏴 보니까 저절로 감안됨
    주사위: 컴퓨터 상대의 운(오차·생각 시간)은 심판 주사위(state.rng)와 「따로」 굴림 (아래 2 — 이유 설명)
    rules.js 다음에 불러야 함. 브라우저에서는 turn.js 다음 (Game.bots 자리에 들어감). node 에서는 require 로 머리만 씀
    ========================================================= */
@@ -153,7 +155,7 @@
         // 빗나간 만큼 고치기: 앞뒤로 빗나감 → 거리, 위아래로 빗나감 → 기울기
         var ex = (target.x - shot.end.x) * dir, ey = target.y - shot.end.y;
         if (Math.abs(ex) < 12 && Math.abs(ey) < 12) break;
-        d = clamp(d + ex / WPU, lim.left, lim.right);
+        d = clamp(d + ex / WPU / (shot.speedK || 1), lim.left, lim.right);   // (2026-10-28) 순풍·역풍이면 거리 1칸이 그만큼 더·덜 가니까 나눠서 고침
         s = clamp(s + (ey / T.verticalRange * 50) / Math.max(dist, 1), -4, 4);
       }
     });
@@ -285,7 +287,7 @@
       var key = t.number + '/' + t.index + '/' + t.startAt;
       if (m.key !== key) {                               // 새 차례 시작 → 생각부터
         m.key = key; m.phase = 'think'; m.last = now; m.until = now + between(rnd, L.thinkTime) * 1000;
-        m.plan = null; m.aim = null; m.dest = null; m.moveEnd = 0; m.prev = null; m.sent = 0;
+        m.plan = null; m.aim = null; m.dest = null; m.moveEnd = 0; m.prev = null; m.sent = 0; m.hurry = false;
       }
       var dt = now - m.last; m.last = now;
       var me = R.getSub(state, id);
@@ -306,6 +308,10 @@
           if (!m.plan) {
             m.plan = planTurn(state, id, C, L, rnd);
             if (!m.plan) { m.phase = 'end'; m.until = now + between(rnd, L.endPause) * 1000; return null; }
+            // (2026-10-28) 줄 서기 DELAY: 쓴 시간만큼 점수가 쌓여 다음 차례가 늦어짐 → 어디서 쏴도 못 맞힐 것 같으면 서두름
+            //   (생각·조준 뜸 절반, 쏜 뒤 비켜 서기 안 함, 바로 넘김) → 점수를 덜 쌓아 다음 차례를 빨리 받음
+            m.hurry = !m.plan.aim || m.plan.aim.enemyDmg <= 0;
+            if (m.hurry) m.until = now + (m.until - now) * 0.5;
           }
           if (now < m.until) return null;
           m.dest = m.plan.dest;
@@ -331,7 +337,7 @@
         case 'face': {                                   // 상대 쪽으로 돌아보기 (걸음 없는 이동 쪽지 = 돌아보기만)
           var tg = R.getSub(state, m.plan.targetId);
           if (!tg || tg.sunk) tg = enemiesOf(state, me)[0];
-          m.phase = 'aim'; m.until = now + between(rnd, L.aimTime) * 1000;
+          m.phase = 'aim'; m.until = now + between(rnd, L.aimTime) * 1000 * (m.hurry ? 0.5 : 1);
           var want = tg ? faceToward(me.x, tg, me.facing) : me.facing;
           if (want !== me.facing && me.move > 0) return { type: 'move', subId: id, steps: [], facing: want };
           return null;
@@ -358,6 +364,7 @@
 
         case 'after': {                                  // 어뢰 재생이 끝남 → 시간·게이지가 남으면 살짝 비켜 서기 (변덕 = 난이도 wander)
           m.phase = 'end'; m.until = now + between(rnd, L.endPause) * 1000;
+          if (m.hurry) { m.until = now + L.endPause[0] * 1000; return null; }   // 서두르는 차례 = 비켜 서기 없이 바로 넘김 (DELAY 덜 쌓기)
           if (me.move > 0.08 && remain > (L.endTime + 2.5) * 1000 && rnd() < L.wander) {
             var foes = enemiesOf(state, me);
             if (foes.length) {

@@ -17,6 +17,7 @@
                   steps = 가고 싶은 만큼의 작은 걸음들 (맵 단위). 한 걸음은 조이스틱 한 화면(최대 0.05초)만큼
                   심판이 한 걸음씩 「게이지 남은 만큼만, 맵 안으로만」 옮기고 실제로 간 거리만큼 게이지를 깎음
      발사:      { type: 'fire',    subId: 'me', points: [[가로 칸, 세로 %], x3], distance: 거리 칸(0 ~ 최대 거리), holdAt: 누르기 시작한 판 시계 }
+                  distance (2026-10-28) = 「조류가 없을 때 터지는 거리」 = 날아가는 시간. 순풍이면 더 멀리, 역풍이면 짧게 터짐 (아래 6)
                   holdAt (2026-10-28) = 발사 버튼·스페이스를 누르기 시작한 시각. 마감 전에 누르기 시작했으면 마감 뒤에 떼도 받아 줌 (아래 「턴 시계」)
      턴 넘기기: { type: 'endTurn', subId: 'me' }
      시간 끝:   { type: 'timeout', subId: 지금 차례 }   (14차) 20초가 다 됐을 때 화면이 냄
@@ -35,6 +36,16 @@
        판단은 쪽지에 적힌 숫자로만: holdAt(누르기 시작) 이 마감 전이고, at - holdAt 이 「게이지 한 번 차는 시간(fire.sweepTime) + 조금(fire.holdSlackMs)」 이하일 때
        → 그보다 길면 거절 (게이지는 sweepTime 이면 저절로 쏘니까 그 이상 누르고 있을 수 없음 = 온라인 때 「마감 뒤에 쏘려고 holdAt 을 속인」 쪽지 막기)
        마감 뒤에 누르기 시작한 발사(holdAt 이 마감 뒤)는 안 됨
+
+   ── 줄 서기 (DELAY) — 2026-10-28 형님 결정 (원작·건바운드 방식) ──
+     잠수함마다 DELAY 점수가 있음. 판 시작 때 전부 0, 판 끝까지 「쌓이기만」 함 (차례가 와도 안 지움)
+     차례가 끝날 때 그 차례에 쓴 시간만큼 더함: 1초 = 10점 (config.js delay.perSecond). 쓴 시간 = 끝낸 쪽지 at − 차례 시작 at
+       시간 끝(timeout)은 늘 「한 차례 시간 전부」(20초 = 200점). 턴 넘기기도 한 차례 시간보다 많이는 안 셈
+       (나중에 아이템·이동에 점수를 더 붙일 자리 = config.js delay.cost — 지금은 전부 0)
+     다음 차례 = 살아 있는 잠수함 중 DELAY 가 「가장 낮은」 잠수함 (한 바퀴 순서 없음, 차례가 끝날 때마다 바로 정함 → pickNext)
+       빨리 끝내면 점수가 덜 쌓여서 내 차례가 또 올 수 있음 (연속 차례)
+       점수가 같으면: 지난 차례를 「더 먼저」 끝낸 잠수함 (오래 기다린 쪽) → 아직 한 번도 안 한 잠수함이 먼저 → 그래도 같으면 config.js turnOrder 순서
+     안전장치: 같은 잠수함은 연속 2번까지 (config.js delay.maxConsecutive). 3번째가 될 차례면 그다음 낮은 잠수함이 함
    ========================================================= */
 (function (root) {
   'use strict';
@@ -79,9 +90,12 @@
       o.hp = clamp(Math.round(s.hp), 0, 100);
       o.sunk = o.hp <= 0;                          // 격침됐나
       o.move = C.movement.gaugeStart;              // 이동 게이지 (0~1). 잠수함마다 따로
+      o.delay = 0;                                 // (2026-10-28) 줄 서기 DELAY 점수 — 판 끝까지 쌓이기만 함
+      o.lastTurn = -1;                             // 마지막으로 차례를 끝낸 턴 번호 (점수가 같을 때 「먼저 끝낸 쪽」 가리기. -1 = 아직 안 함)
       return o;
     });
-    // 차례 순서: config.js turnOrder 가 있으면 그 순서, 없으면 잠수함 적힌 순서. 여러 명·여러 팀 그대로 됨
+    // 처음 순서: config.js turnOrder 가 있으면 그 순서, 없으면 잠수함 적힌 순서 (지금은 나 → 상대, 팀전이면 팀이 번갈아 적혀 있음)
+    //   (2026-10-28) 이제 차례는 DELAY 가 낮은 순서로 정해지고, 이 순서는 「점수도 같고 둘 다 아직 안 했을 때」 가리는 데만 씀
     var order = (C.turnOrder || subs.map(function (s) { return s.id; })).slice();
     var active = C.activeSubId || order[0];
     var state = {
@@ -91,8 +105,10 @@
       current: { dir: C.current.dir, strength: clamp(Math.round(C.current.strength || 0), 0, 5) },
       // 차례 정보 (14차): 순서표·지금 몇 번째·지금 차례 잠수함·턴 번호
       //   + 시계(limit = 한 차례 시간, startAt·deadline = 시작·마감 시각, 전부 판 시계 1/1000초) + 남은 발사 수·쐈나(쏜 시각)
-      turn: { order: order, index: Math.max(0, order.indexOf(active)), activeId: active, number: 1,
-              limit: turnLimitMs(C), startAt: 0, deadline: 0, shotsLeft: 0, fired: false, firedAt: null },
+      //   (2026-10-28) number = 판 시작부터 몇 번째 차례인가 (차례마다 +1), streak = 지금 잠수함이 연속 몇 번째 차례인가,
+      //   extraDelay = 이번 차례에 시간 말고 더 붙을 DELAY 점수 (config.js delay.cost, 지금은 0)
+      turn: { order: order, index: Math.max(0, order.indexOf(active)), activeId: active, number: 1, streak: 1,
+              limit: turnLimitMs(C), startAt: 0, deadline: 0, shotsLeft: 0, fired: false, firedAt: null, extraDelay: 0 },
       over: null,                                  // 판 끝 = { winner: 이긴 팀 이름 (모두 격침이면 null = 비김), at }
       log: []                                      // 받은 주문서 기록 (같은 seed 로 처음부터 다시 돌리면 똑같은 판이 나옴)
     };
@@ -110,7 +126,8 @@
 
   /* =========================================================
      3. 차례 진행 (14차)
-        nextTurn: 순서표에서 다음 차례인 「살아 있는」 잠수함으로 넘김 (격침된 잠수함은 건너뜀). 1:1·개인전·팀전 모두 같은 표로
+        nextTurn: (2026-10-28) 「살아 있는」 잠수함 중 DELAY 가 가장 낮은 잠수함으로 넘김 (줄 서기, 맨 위 설명. 격침된 잠수함은 빠짐)
+                  1:1·개인전·팀전 모두 같은 방법. 예전 「순서표대로 번갈아」는 없어짐
         beginTurn: 차례 시작 준비 — 그 잠수함 이동 게이지 가득(2단계 규칙 「매 턴 가득 참」), 조류 새로 굴림, 마감 시각, 발사 1번
      ========================================================= */
   function beginTurn(state, at, C) {
@@ -123,6 +140,7 @@
     t.shotsLeft = 1;                               // 한 차례에 한 발 (나중에 아이템 「2연발」이 이 숫자를 2로)
     t.fired = false;                               // 다 쐈으면 true → 그 차례엔 발사만 잠김 (이동·시계는 그대로, 2026-10-28)
     t.firedAt = null;
+    t.extraDelay = 0;
   }
   // 아직 시간이 남았나 (at 이 없는 쪽지는 검사 안 함 — 확인용·옛 기록)
   function inTime(state, at) { return at == null || !(at > state.turn.deadline); }
@@ -136,18 +154,62 @@
     var maxHold = Math.round((F.sweepTime || 1.6) * 1000) + (F.holdSlackMs != null ? F.holdSlackMs : 250);
     return at - holdAt <= maxHold;
   }
-  function nextTurn(state) {
-    var t = state.turn, n = t.order.length;
-    for (var k = 1; k <= n; k++) {
-      var i = (t.index + k) % n, s = getSub(state, t.order[i]);
-      if (s && !s.sunk) {
-        if (i <= t.index) t.number++;              // 순서표를 한 바퀴 다 돌면 「턴 번호」 하나 올라감
-        t.index = i;
-        t.activeId = s.id;
-        return s.id;
-      }
-    }
-    return null;                                   // 살아 있는 잠수함이 없음
+  /* ---------- 줄 서기 (DELAY) — 2026-10-28 형님 결정 (맨 위 설명) ---------- */
+  function delayRules(C) {
+    var D = C.delay || {};
+    return { perSecond: D.perSecond != null ? D.perSecond : 10, maxConsecutive: D.maxConsecutive || 2, cost: D.cost || {} };
+  }
+  // 쓴 시간(1/1000초) → DELAY 점수. 1초 = 10점이면 0.1초 = 1점 (반올림 → 늘 정수)
+  function delayPoints(ms, C) { return Math.round(Math.max(0, ms) / 1000 * delayRules(C).perSecond); }
+
+  // 줄 세우기 비교: ① DELAY 낮은 쪽 ② 같으면 지난 차례를 먼저 끝낸 쪽(lastTurn 작은 쪽, 한 번도 안 했으면 -1 = 가장 먼저)
+  //   ③ 그래도 같으면(둘 다 아직 안 함) config.js turnOrder 순서. → 늘 하나로 정해짐 (같은 쪽지 기록이면 어느 컴퓨터든 같은 순서)
+  //   ov = { id, delay, lastTurn } 한 잠수함만 점수를 바꿔 끼워 봄 (화면 미리보기: 「지금 차례 잠수함이 지금 끝내면」). 없으면 진짜 점수
+  function queueOrder(state, ov) {
+    var order = state.turn.order;
+    var rank = function (s) { var i = order.indexOf(s.id); return i < 0 ? order.length : i; };
+    var d = function (s) { return ov && ov.id === s.id ? ov.delay : s.delay; };
+    var l = function (s) { return ov && ov.id === s.id ? ov.lastTurn : s.lastTurn; };
+    return state.subs.filter(function (s) { return !s.sunk; }).sort(function (a, b) {
+      if (d(a) !== d(b)) return d(a) - d(b);
+      if (l(a) !== l(b)) return l(a) - l(b);
+      return rank(a) - rank(b);
+    });
+  }
+  // 줄에서 다음 차례 고르기: 맨 앞. 단, 맨 앞이 지금 잠수함이고 이미 연속 maxConsecutive(2)번 했으면 그다음 사람 (안전장치)
+  function pickFrom(list, state, C) {
+    var t = state.turn;
+    if (!list.length) return null;
+    if (list[0].id === t.activeId && t.streak >= delayRules(C).maxConsecutive && list.length > 1) return list[1];
+    return list[0];
+  }
+  // 차례를 끝낸 뒤 다음 차례 정하기 (DELAY 는 apply 에서 먼저 더해 둠). 턴 번호 +1, 연속 횟수 세기
+  function nextTurn(state, C) {
+    var t = state.turn, s = pickFrom(queueOrder(state), state, C || {});
+    if (!s) return null;                           // 살아 있는 잠수함이 없음
+    t.streak = s.id === t.activeId ? t.streak + 1 : 1;
+    t.number++;
+    t.index = Math.max(0, t.order.indexOf(s.id));
+    t.activeId = s.id;
+    return s.id;
+  }
+  // 화면용 「다음 차례 줄」 미리보기: now(판 시계)를 주면 지금 차례 잠수함은 「지금 끝내면」 점수로 셈 (쓴 시간 + 덤)
+  //   돌려줌: [{ id, delay, next(다음 차례인가), active(지금 차례인가) }, ...] — 다음 차례가 맨 앞, 그 뒤는 DELAY 낮은 순
+  //   (그 뒤 차례들은 그때 쓸 시간에 따라 바뀌니까 「지금 점수로 줄 선 모양」일 뿐)
+  function queue(state, C, now) {
+    var t = state.turn, ov = null, a = getSub(state, t.activeId);
+    if (a && now != null && !state.over) ov = { id: a.id, delay: projectedDelay(state, C, now), lastTurn: t.number };
+    var list = queueOrder(state, ov), first = pickFrom(list, state, C);
+    if (first && list[0] !== first) { list.splice(list.indexOf(first), 1); list.unshift(first); }
+    return list.map(function (s) {
+      return { id: s.id, delay: ov && ov.id === s.id ? ov.delay : s.delay, next: s === first, active: s.id === t.activeId };
+    });
+  }
+  // 지금 차례 잠수함이 판 시계 now 에 차례를 끝내면 될 DELAY (화면 DLY 칸이 내 차례 동안 실시간으로 올라가게)
+  function projectedDelay(state, C, now) {
+    var t = state.turn, a = getSub(state, t.activeId);
+    if (!a) return 0;
+    return a.delay + delayPoints(Math.min(Math.max(0, now - t.startAt), t.limit), C) + Math.round(t.extraDelay || 0);
   }
   // 아직 살아 있는 팀 목록 (나중에 「한 팀만 남으면 끝」 판정에 씀)
   function aliveTeams(state) {
@@ -185,7 +247,13 @@
   function curveY(sp, x) {
     var k = sp.k, M = sp.M, n = k.length - 1, i = 0;
     var seg = function (i) { return k[i + 1][0] - k[i][0]; };
-    if (x >= k[n][0]) return k[n][1];                           // 맨 끝 점 뒤: 곡선은 없음 → 끝 점 높이를 돌려줌(안전용)
+    if (x >= k[n][0]) {
+      // 맨 끝 점 뒤 (2026-10-28): 판에는 곡선이 끝 점에서 끝나지만(그림은 거기까지만), 순풍 조류로 어뢰가 더 멀리 가면
+      //   끝 점에서 「마지막 기울기 그대로 곧게」 계속 감 (자연 스플라인 끝은 휘는 정도 0 이라 이게 가장 자연스러운 연장)
+      var hn = seg(n - 1);
+      var endSlope = (k[n][1] - k[n - 1][1]) / hn + hn * (M[n - 1] + 2 * M[n]) / 6;
+      return k[n][1] + endSlope * (x - k[n][0]);
+    }
     while (i < n - 1 && x > k[i + 1][0]) i++;
     var h = seg(i), t = x - k[i][0];
     var b = (k[i + 1][1] - k[i][1]) / h - h * (2 * M[i] + M[i + 1]) / 6;
@@ -229,7 +297,8 @@
      6. 어뢰 한 발 전체 계산 (화면 없이, 일정한 작은 걸음으로)
         예전엔 화면이 그려질 때마다 조금씩 날리면서 데미지를 줬음 → 컴퓨터 빠르기에 따라 걸음이 달라질 수 있었음
         이제는 쏘는 순간 「맵 simStep(6)씩」 걸음으로 끝까지 한 번에 계산 → 어느 컴퓨터든 같은 결과
-        계산 방법(곡선·1칸=맵 48·세로 범위·빠르기·조류·스침·폭발·자기 데미지)은 예전 torpedo.js 와 똑같음
+        계산 방법(곡선·1칸=맵 48·세로 범위·빠르기·스침·폭발·자기 데미지)은 예전 torpedo.js 와 똑같음
+        (2026-10-28 형님 결정) 조류만 바뀜: 게이지 = 날아가는 시간, 왼쪽·오른쪽 조류 = 빠르기(순풍 멀리·역풍 짧게), 위·아래 조류 = 예전처럼 밂
         돌려주는 결과:
           samples = 날아간 길 [[시간(초), x, y], ...] (화면이 이걸 따라 어뢰를 움직임)
           events  = 데미지 목록 [{ t: 몇 초에, id, kind: 'graze'(스침)|'blast'(폭발), dmg, dist, hpAfter }]
@@ -242,14 +311,34 @@
     var T = C.torpedo, M = C.movement, WPU = C.pad.worldPerUnit;
     var STEP = T.simStep || 6;
     var dir = shooter.facing === 'left' ? -1 : 1;
-    var cur = state.current || {}, cv = CURRENT_VEC[cur.dir] || [0, 0], push = (cur.strength || 0) * T.currentPush;
-    var vx = cv[0] * push, vy = cv[1] * push;           // 조류가 미는 빠르기 (맵/초)
+    var cur = state.current || {}, cv = CURRENT_VEC[cur.dir] || [0, 0], str = cur.strength || 0;
+    // (2026-10-28 형님 결정, 원작 확인) 조류:
+    //   왼쪽·오른쪽 조류 = 어뢰 「빠르기」를 바꿈 — 어뢰가 가는 쪽과 같으면(순풍) 빨라져서 더 멀리, 반대면(역풍) 느려져서 짧게
+    //     빠르기 배율 = 1 + (같은 쪽 +1 / 반대 −1) × 세기 × currentSpeedFactor  (0.05 → 세기 5 = ±25 %)
+    //     예전처럼 옆으로 미는 힘은 없음 (빠르기로 바뀜)
+    //   위·아래 조류 = 예전 그대로 날아간 시간만큼 위·아래로 점점 더 밂 (currentPush × 세기, 맵/초)
+    var speedK = Math.max(0.1, 1 + cv[0] * dir * str * (T.currentSpeedFactor || 0));
+    var vy = cv[1] * str * T.currentPush;               // 위·아래로 미는 빠르기 (맵/초)
     var sp = curveSpline(points);
     var x0 = shooter.x + dir * M.subHalfW, y0 = shooter.y;   // 잠수함 앞코
     var target = Math.max(0, distance);
 
     // 곡선 높이(%) → 맵 세로 거리 (판 가운데 50 % = 잠수함 높이, 맨 위·아래 = ±verticalRange)
     function offY(u) { return (curveY(sp, u) - 50) / 50 * T.verticalRange; }
+    // 곡선을 따라 맵 len 만큼 가면 거리 칸이 얼마나 느나 (휘는 곳에서도 곡선 길이로 일정하게 = 예전과 같은 계산)
+    function duFor(u, len) {
+      var slope = (offY(u + 0.02) - offY(u)) / (0.02 * WPU);
+      return len / Math.sqrt(1 + slope * slope) / WPU;
+    }
+
+    // (2026-10-28) 게이지가 정하는 것 = 「날아가는 시간」. 조류가 없을 때 판 거리 눈금 그대로(target 칸)에서 터지는 시간
+    //   = 곡선을 따라 target 칸까지 기본 빠르기(T.speed)로 가는 시간. 먼저 조류 없이 걸음 그대로 재 봄 (아래 날기와 같은 걸음)
+    var STEP_T = STEP / T.speed, flightTime = 0;
+    for (var pu = 0; pu < target - 1e-9;) {
+      var pdu = duFor(pu, STEP);
+      if (pu + pdu >= target) { flightTime += STEP_T * (target - pu) / pdu; break; }
+      pu += pdu; flightTime += STEP_T;
+    }
 
     // 데미지는 계산용 체력 복사본에 먼저 적용 (스침으로 격침된 잠수함은 폭발 데미지를 또 안 받음 — 예전과 같음)
     var hp = {};
@@ -269,14 +358,16 @@
 
     if (target <= 0) end = { kind: 'boom' };            // 거리 0 = 바로 앞에서 펑
     while (!end) {
-      // 곡선을 따라 맵 STEP 만큼 나아감 (휘는 곳에서도 빠르기 일정, 잠수함을 건너뛰지 않음)
-      var slope = (offY(u + 0.02) - offY(u)) / (0.02 * WPU);
-      var du = STEP / Math.sqrt(1 + slope * slope) / WPU, done = false;
-      if (u + du >= target) { du = target - u; done = true; }
-      u += du;
-      time += STEP / T.speed;
-      x = x0 + dir * u * WPU + vx * time;               // 조류: 날아간 시간만큼 점점 더 밀림
-      y = y0 + offY(u) + vy * time;
+      // 한 걸음 = 같은 시간(STEP_T). 그동안 곡선을 따라 「맵 STEP × 빠르기 배율」 만큼 나아감
+      //   → 곡선 모양(판에 그린 길)은 그대로 따라가고, 순풍이면 같은 시간에 곡선 위를 더 멀리(거리 칸 u 가 더 빨리 늚), 역풍이면 덜
+      //   정한 날아가는 시간(flightTime)이 되면 그 자리에서 펑. 조류 없으면 u = target 에서 펑 (판 눈금 그대로)
+      //   (빠르기 배율이 커도 한 걸음은 맵 STEP × 1.25 정도라 잠수함(가로 76)을 건너뛰지 않음)
+      var dt = STEP_T, done = false;
+      if (time + dt >= flightTime) { dt = Math.max(0, flightTime - time); done = true; }
+      u += duFor(u, STEP * speedK * (dt / STEP_T));
+      time += dt;
+      x = x0 + dir * u * WPU;
+      y = y0 + offY(u) + vy * time;                     // 위·아래 조류: 날아간 시간만큼 점점 더 밀림
       samples.push([time, x, y]);
 
       // 스치기: 잠수함 몸(타원)에 들어갔다가 빠져나올 때 깎음 (쏜 잠수함·이미 스친·격침된 잠수함은 빼고)
@@ -314,7 +405,7 @@
 
     return {
       owner: shooter.id, dir: dir, start: { x: x0, y: y0 }, startAng: startAng,
-      target: target, current: { dir: cur.dir, strength: cur.strength || 0 },
+      target: target, flightTime: flightTime, speedK: speedK, current: { dir: cur.dir, strength: cur.strength || 0 },
       samples: samples, events: events, end: end, sunk: sunk
     };
   }
@@ -345,6 +436,7 @@
       if (action.facing === 'left' || action.facing === 'right') sub.facing = action.facing;
       var moved = 0;
       (action.steps || []).forEach(function (st) { moved += moveStep(sub, +st[0] || 0, +st[1] || 0, C); });
+      t.extraDelay += moved * (+delayRules(C).cost.move || 0);   // (나중 자리) 움직인 거리만큼 DELAY 덤 — 지금 config 값 0
       res = { ok: true, type: 'move', subId: sub.id, x: sub.x, y: sub.y, facing: sub.facing, move: sub.move, moved: moved };
 
     } else if (action.type === 'fire') {
@@ -352,12 +444,13 @@
       if (t.fired || t.shotsLeft <= 0) return { ok: false, why: '이미 쏨' };
       var ch = C.character;
       var points = cleanPoints(action.points, ch);
-      var distance = clamp(Math.round(+action.distance || 0), 0, ch.limit.right);   // 거리는 정수 칸 (화면 DELAY 숫자와 같음)
+      var distance = clamp(Math.round(+action.distance || 0), 0, ch.limit.right);   // 거리는 정수 칸 (궤도 판 구석 거리 숫자와 같음)
       var shot = simulateShot(state, sub, points, distance, C);
       // 결과를 진짜 상태에 바로 적용 (화면은 시간에 맞춰 천천히 보여 줌)
       shot.events.forEach(function (ev) { getSub(state, ev.id).hp = ev.hpAfter; });
       shot.sunk.forEach(function (id) { getSub(state, id).sunk = true; });
       t.shotsLeft--;
+      t.extraDelay += +delayRules(C).cost.fire || 0;             // (나중 자리) 한 발 쏠 때 DELAY 덤 — 지금 config 값 0
       if (t.shotsLeft <= 0) { t.fired = true; t.firedAt = at != null ? at : t.startAt; }   // 다 쐈음 (시계는 계속 감)
       // 한 팀만 남았으면(또는 모두 격침) 판 끝 — 결과는 지금 정해지고, 화면은 어뢰 재생이 끝난 뒤 보여 줌
       var teams = aliveTeams(state);
@@ -370,9 +463,17 @@
       if (action.type === 'timeout' && at != null && at < t.deadline) return { ok: false, why: '아직 시간 남음' };
       // 다음 차례 시작 시각: 쪽지의 at (없으면 시간 끝 = 마감 시각, 턴 넘기기 = 이번 차례 시작 시각 → 그래도 늘 같은 결과)
       var startAt = at != null ? Math.max(at, t.startAt) : (action.type === 'timeout' ? t.deadline : t.startAt);
-      var from = sub.id, next = nextTurn(state);
+      // (2026-10-28 형님 결정) 줄 서기: 이번 차례에 쓴 시간만큼 DELAY 를 쌓음 (1초 = 10점, 판 끝까지 안 지움)
+      //   쓴 시간 = 끝낸 쪽지 at − 차례 시작 at, 한 차례 시간(20초)보다 많이는 안 셈. 시간 끝은 늘 20초 전부
+      //   (어뢰 재생 때문에 마감 뒤에 온 시간 끝도 20초 — 재생을 기다린 시간은 안 셈)
+      var used = action.type === 'timeout' ? t.limit : clamp(startAt - t.startAt, 0, t.limit);
+      var gained = delayPoints(used, C) + Math.round(t.extraDelay || 0);
+      sub.delay += gained;
+      sub.lastTurn = t.number;                     // 점수가 같을 때 「먼저 끝낸 쪽」 가리기용
+      var from = sub.id, next = nextTurn(state, C);   // 다음 차례 = DELAY 가장 낮은 잠수함 (연속 2번까지)
       if (next) beginTurn(state, startAt, C, false);
-      res = { ok: true, type: action.type, subId: from, activeId: t.activeId, number: t.number,
+      res = { ok: true, type: action.type, subId: from, activeId: t.activeId, number: t.number, streak: t.streak,
+              used: used, gained: gained, delay: sub.delay,
               move: next ? getSub(state, next).move : 0, current: { dir: state.current.dir, strength: state.current.strength },
               deadline: t.deadline };
 
@@ -395,6 +496,7 @@
     createState: createState, apply: apply, replay: replay, getSub: getSub,
     random: random, randomInt: randomInt, rollCurrent: rollCurrent,
     nextTurn: nextTurn, beginTurn: beginTurn, aliveTeams: aliveTeams,
+    delayPoints: delayPoints, queue: queue, projectedDelay: projectedDelay,
     curveSpline: curveSpline, curveY: curveY, simulateShot: simulateShot, moveStep: moveStep
   };
   root.Rules = Rules;

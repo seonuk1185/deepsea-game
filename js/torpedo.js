@@ -212,7 +212,7 @@
     var r = play ? play.r : null;
     play = null;
     setBusy(false);
-    G.setFireGauge(0);                        // 발사가 끝나면 거리 게이지 비우기 (형님 지시). DELAY 숫자는 턴 넘기기 때 지움
+    G.setFireGauge(0);                        // 발사가 끝나면 거리 게이지 비우기 (형님 지시). 판 구석 거리 숫자는 차례가 바뀔 때 지움
     G.cam.follow = true;
     G.cam.manual = false;                     // 내 잠수함으로 돌아왔으니 「직접 둘러봄」도 끝 → 다시 WASD 로 움직이면 따라감
     if (r && G.afterShot) G.afterShot(r);

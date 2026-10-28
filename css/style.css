@@ -200,6 +200,12 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 /* 점이 있는 세로 줄 (점선) */
 .pcol{position:absolute;z-index:1;top:0;bottom:0;width:0;border-left:1px dashed rgba(216,246,255,.3)}
 .limtag{position:absolute;bottom:2px;font:600 10px/1 var(--f-num);opacity:.85;color:var(--amber);white-space:nowrap}
+/* (2026-10-28) 터지는 거리 숫자 — 판 위 구석, 잠수함 반대쪽 (곡선은 최대 거리에서 끝나서 그 뒤가 비어 있음). 왼쪽을 보면 왼쪽 구석(.rtl) */
+.pdist{position:absolute;z-index:7;top:3px;right:4px;display:flex;align-items:baseline;gap:3px;padding:2px 4px;pointer-events:none;
+  background:rgba(1,10,16,.62);box-shadow:inset 0 0 0 1px rgba(255,207,74,.25);font:600 9px/1 var(--f-num);letter-spacing:1px;color:var(--txt2)}
+.pdist.rtl{right:auto;left:4px}
+.pdist em{font-style:normal}
+.pdist b{min-width:2ch;text-align:right;font:700 12px/1 var(--f-num);color:var(--amber);letter-spacing:.5px;text-shadow:0 0 6px rgba(255,207,74,.6)}
 /* 거리(발사) 게이지: 판 가운데를 가로지르는 가는 유리 막대 + 앰버 빛 채움. 잠수함 쪽 끝에 딱 붙어서 시작. 흰 표시 = 멈춘 자리 */
 /* 빈 막대는 아주 흐리게 (곡선이 위로 지나감), 채워지는 앰버 빛만 또렷하게 */
 .fgauge{position:absolute;z-index:1;top:50%;height:8px;margin-top:-4px;border-radius:2px;background:rgba(1,10,16,.35);
@@ -348,7 +354,11 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 
 /* ===== (14차) 미니맵 — 오른쪽 위, Ⅱ 단추 바로 아래 (왼쪽 위·가운데 위는 채팅 자리) =====
    B의 유리 판 + 모서리 청록 꺾쇠 + 모눈. 맵 모양 그대로 (가로 : 세로 = config.js world, minimap.js 가 넣음) */
-.minimap{position:absolute;top:calc(50px + var(--safe-t));right:calc(8px + var(--safe-r));width:128px;padding:3px;touch-action:none;cursor:pointer;
+/* 오른쪽 위 묶음 = 미니맵 + 그 밑 「다음 차례 줄」 (2026-10-28). 묶음 폭 = 미니맵 폭 */
+.topright{position:absolute;top:calc(50px + var(--safe-t));right:calc(8px + var(--safe-r));display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.hud > .topright{pointer-events:none}
+.topright > *{pointer-events:auto}
+.minimap{position:relative;width:128px;padding:3px;touch-action:none;cursor:pointer;
   background:var(--glass);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
   box-shadow:inset 0 0 0 1px rgba(62,232,255,.22),inset 0 1px 0 rgba(255,255,255,.08),0 4px 14px rgba(0,0,0,.35)}
 .minimap::before,.minimap::after{content:"";position:absolute;width:7px;height:7px;border:0 solid var(--c);pointer-events:none}
@@ -369,6 +379,21 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 .mm-torp{width:4px;height:4px;margin:-2px 0 0 -2px;border-radius:50%;background:#ffb27a;box-shadow:0 0 4px #ff7a2e}
 .mm-torp[hidden]{display:none}
 .mm-view{border:1px solid rgba(216,246,255,.8)}
+
+/* (2026-10-28) 다음 차례 줄 (줄 서기 DELAY) — 미니맵 바로 밑, 오른쪽 맞춤. 「NEXT」 + 칩(팀 색 줄 + 첫 글자 + 4자리 점수)
+   맨 앞 칩 = 다음 차례 (밝은 테두리·빛). 지금 차례 칩은 점수가 실시간으로 오르고 오른쪽 위 작은 점이 깜빡. 칸이 모자라면 다음 줄로 */
+.tqueue{align-self:stretch;display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:3px;pointer-events:none}
+.tqueue:empty{display:none}
+.tqueue em{font:600 9px/1 var(--f-num);font-style:normal;letter-spacing:1.5px;color:var(--txt2);text-shadow:var(--text-halo);margin-right:1px}
+.tq{position:relative;display:flex;align-items:center;gap:3px;padding:2px 5px 2px 6px;white-space:nowrap;
+  background:var(--glass);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  box-shadow:inset 0 0 0 1px rgba(62,232,255,.18),inset 2px 0 0 var(--c);font:600 11px/1 var(--f-num);color:var(--txt2);letter-spacing:.5px}
+.tq.theirs{box-shadow:inset 0 0 0 1px rgba(255,84,104,.2),inset 2px 0 0 var(--red)}
+.tq i{font:700 10px/1 var(--f-kr);font-style:normal;color:var(--c)}
+.tq.theirs i{color:var(--red)}
+.tq.next{color:#fff;box-shadow:inset 0 0 0 1px rgba(62,232,255,.7),inset 2px 0 0 var(--c),0 0 8px var(--c-glow)}
+.tq.theirs.next{box-shadow:inset 0 0 0 1px rgba(255,84,104,.75),inset 2px 0 0 var(--red),0 0 8px rgba(255,84,104,.5)}
+.tq.now::after{content:"";position:absolute;right:-2px;top:-2px;width:4px;height:4px;border-radius:50%;background:var(--amber);box-shadow:0 0 4px var(--amber);animation:mmblink .7s steps(2,start) infinite}
 
 /* (14차) 「상대 차례」 작은 표시 — 바다 오른쪽 아래 (위 가운데는 채팅 자리). 유리 띠 + 왼쪽 빨간 줄 (우리 편이면 청록) */
 .turntag{position:absolute;right:calc(10px + var(--safe-r));bottom:6px;padding:4px 10px 4px 9px;pointer-events:none;white-space:nowrap;
@@ -423,7 +448,9 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
   .nudge{width:38px} .nbtn{max-height:56px} .nbtn svg{width:15px;height:15px} .ntag{font-size:13px;line-height:14px}
   .menu{width:52px;height:52px} .menu span{width:42px;height:42px} .menu svg{width:17px;height:17px}
   .mapname{font-size:13px} .chat{font-size:15px;line-height:22px}
-  .minimap{top:calc(58px + var(--safe-t));width:190px;padding:4px}
+  .topright{top:calc(58px + var(--safe-t));gap:5px} .minimap{width:190px;padding:4px}
+  .tqueue{gap:4px} .tqueue em{font-size:11px} .tq{font-size:14px;padding:3px 7px 3px 8px;gap:4px} .tq i{font-size:12px}
+  .pdist{font-size:11px;top:4px;padding:2px 5px} .pdist b{font-size:15px}
   .mm-sub{width:8px;height:8px;margin:-4px 0 0 -4px} .mm-sub.me{width:11px;height:11px;margin:-5.5px 0 0 -5.5px}
   .mm-crate{width:6px;height:6px;margin:-3px 0 0 -3px}
   .turntag{font-size:14px;padding:5px 13px 5px 11px}
