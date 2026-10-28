@@ -1,8 +1,10 @@
 /* =========================================================
    심해 포격전(가칭) — 조이스틱으로 내 잠수함 움직이기
    1) 조이스틱: 손잡이를 잡고 끌면 손가락을 따라감(동그라미 안까지만), 놓으면 가운데로 돌아감
-   2) 이동: 미는 방향·세기대로 잠수함이 움직이고, 간 거리만큼 이동 게이지가 줄어듦
+   2) 이동: 미는 방향·세기대로 「이동 주문서」를 냄 → 심판(rules.js)이 옮기고, 간 거리만큼 이동 게이지를 깎음
    3) 카메라: 잠수함이 움직이면 화면이 부드럽게 따라감 (바다를 손으로 밀면 잠깐 멈춤)
+   4) 턴 넘기기 버튼 → 「턴 넘기기 주문서」
+   이 파일은 잠수함 자리·게이지를 직접 바꾸지 않음 (쪽지만 냄). 나중에 키보드도 같은 쪽지를 내면 됨
    main.js 다음에 불러야 함 (window.Game 을 씀)
    ========================================================= */
 (function () {
@@ -58,8 +60,12 @@
 
   /* =========================================================
      2. 이동 — 매 화면(1초에 약 60번)마다 조금씩
+        쪽지 내는 방식: 한 화면마다 「이만큼 가고 싶어요」 걸음 하나짜리 이동 쪽지를 바로 냄
+          → 심판이 그 자리에서 옮겨 주고, 화면은 심판이 정한 자리로 그림. 그래서 부드럽고, 화면·심판 자리가 어긋날 일이 없음
+          (예전 조이스틱과 계산이 한 걸음 한 걸음 똑같아서, 벽에 막히며 미끄러질 때도 게이지가 똑같이 줄어듦)
+          온라인 때는 이 걸음들을 0.1초쯤 모아 쪽지 한 장(steps 여러 개)으로 보내면 됨 — 쪽지 모양은 이미 그렇게 되어 있음
      ========================================================= */
-  var meId = C.activeSubId;
+  var meId = C.activeSubId;   // 이 화면이 조종하는 잠수함 (지금은 늘 내 잠수함)
 
   // 조이스틱 값 → 실제로 쓸 방향·세기 (가운데 조금은 무시하고, 그 바깥을 0~1로 다시 펼침)
   function readStick() {
@@ -70,37 +76,20 @@
   }
 
   function step(dt) {
-    var s = G.getSub(meId);
+    var s = G.getSub(meId);           // 심판이 들고 있는 내 잠수함 (읽기만)
     if (!s) return;
-    var st = G.state, inp = readStick();
+    var inp = readStick();
 
-    // st.busy = 어뢰가 날아가는 중 (torpedo.js) → 그동안은 못 움직임
-    if (inp.power > 0 && st.move > 0 && !st.busy) {
+    // G.state.busy = 어뢰를 보여 주는 중 (torpedo.js) → 그동안은 못 움직임. 게이지가 바닥이면 쪽지를 안 냄
+    if (inp.power > 0 && s.move > 0 && !G.state.busy) {
       // 바라보는 쪽: 좌우로 충분히 밀었을 때만 돌아봄 (거의 위아래로만 밀면 그대로)
-      var hx = inp.x * inp.power;
-      if (hx > M.faceThreshold) G.setFacing(meId, 'right');
-      else if (hx < -M.faceThreshold) G.setFacing(meId, 'left');
+      var hx = inp.x * inp.power, facing = s.facing;
+      if (hx > M.faceThreshold) facing = 'right';
+      else if (hx < -M.faceThreshold) facing = 'left';
 
-      // 갈 거리 (게이지가 남은 만큼까지만)
+      // 이번 화면에 가고 싶은 걸음 (방향 × 세기 × 빠르기 × 시간). 게이지·맵 끝 계산은 심판이 함
       var want = M.speed * inp.power * dt;
-      var left = st.move * C.character.moveDistance;
-      var dist = Math.min(want, left);
-
-      // 맵 안에 가두기 (잠수함 크기 + 여백)
-      var ox = s.x, oy = s.y;
-      var minX = M.subHalfW + M.marginX, maxX = C.world.w - M.subHalfW - M.marginX;
-      var minY = M.subHalfH + M.marginTop, maxY = C.world.h - M.subHalfH - M.marginBottom;
-      s.x = Math.min(Math.max(s.x + inp.x * dist, minX), maxX);
-      s.y = Math.min(Math.max(s.y + inp.y * dist, minY), maxY);
-
-      // 실제로 움직인 거리만큼 게이지 줄임 (벽에 막혀 못 가면 안 줄어듦)
-      var moved = Math.sqrt((s.x - ox) * (s.x - ox) + (s.y - oy) * (s.y - oy));
-      if (moved > 0) {
-        st.move = Math.max(0, st.move - moved / C.character.moveDistance);
-        if (st.move < 1e-6) st.move = 0;
-        G.placeSub(meId);
-        G.setMoveGauge(st.move);
-      }
+      G.submit({ type: 'move', subId: meId, steps: [[inp.x * want, inp.y * want]], facing: facing });
     }
 
     // 카메라 따라가기: 잠수함이 화면 가운데 오도록 부드럽게 (바다를 직접 밀고 있으면 안 함)
@@ -125,14 +114,11 @@
   }
   requestAnimationFrame(frame);
 
-  /* ---------- 임시: 턴 넘기기 버튼을 누르면 이동 게이지가 다시 가득 + 거리 게이지·DELAY 처음으로 ----------
-     (턴 진행을 만들면 이 부분은 지우고, 내 턴이 시작될 때 게이지를 채우게 바꿈) */
+  /* ---------- 턴 넘기기 버튼 → 「턴 넘기기 주문서」 ----------
+     (임시) 지금은 심판이 이동 게이지만 다시 가득 채우고, 화면이 거리 게이지·DELAY 를 처음으로 (main.js onResult('endTurn'))
+     턴 진행(②)을 만들면 심판이 여기서 다음 차례로 넘김 */
   document.getElementById('btnSkip').addEventListener('click', function () {
-    G.state.move = M.gaugeStart;
-    G.setMoveGauge(G.state.move);
-    G.setFireGauge(0);                                          // 지난 턴에 쏜 거리 게이지 비우기
-    G.state.shot = null;
-    document.getElementById('delayNum').textContent = '--';
+    G.submit({ type: 'endTurn', subId: meId });
   });
 
   // 확인용으로 밖에서 볼 수 있게

@@ -1,24 +1,34 @@
 /* =========================================================
    심해 포격전(가칭) — 게임 화면
    하는 일: 설정값(config.js)대로 화면을 그림 + 카메라 + 바다 끌어서 둘러보기
+           + 「주문서 창구」 Game.submit — 모든 행동 쪽지를 받아 심판(rules.js)에게 넘기고, 결과대로 화면을 바꿈
+   진짜 게임 상태(잠수함 자리·체력·조류·차례)는 심판(rules.js)이 들고 있음. 이 파일은 그걸 「보여 주기」만 함
    잠수함 이동(조이스틱)은 move.js 가 맡음
-   궤도 판 점 끌기는 pad.js, 발사 꾹 누르기(거리 정하기)는 fire.js, 어뢰 날아가기·폭발·데미지는 torpedo.js
+   궤도 판 점 끌기는 pad.js, 발사 꾹 누르기(거리 정하기)는 fire.js, 어뢰 재생(날아가기·폭발·데미지 숫자)은 torpedo.js
    아직 없는 것: 턴 진행·컴퓨터 상대 (다음 단계)
+   rules.js 다음에 불러야 함
    ========================================================= */
 (function () {
   'use strict';
 
-  var C = window.GAME_CONFIG;
+  var C = window.GAME_CONFIG, R = window.Rules;
   var $ = function (id) { return document.getElementById(id); };
 
-  /* ---------- 지금 게임 상태 (설정값을 복사해서 시작, 게임 중에 바뀜) ---------- */
+  /* ---------- 진짜 게임 상태 = 심판이 들고 있음 (rules.js) ----------
+     잠수함 자리·바라보는 쪽·체력·팀·격침·이동 게이지, 조류, 차례 정보. 화면 코드는 읽기만 하고 직접 바꾸지 않음
+     (바꾸고 싶으면 주문서를 Game.submit 으로 냄) */
+  var rs = R.createState(C, C.seed);
+
+  /* ---------- 화면 쪽 상태 (내 손에서 아직 준비 중인 것 + 보여 주기용) ----------
+     궤도 판: 핀 3개 [가로(거리 칸, 잠수함 쪽 끝 = 0), 세로(판 높이 %)] (캐릭터 기본 모양에서 시작) + 거리 게이지 찬 정도 (0~1)
+             + sel = ▲▼ 미세조정으로 움직일 「골라 둔 점」 번호 (0~2, 처음엔 가운데)
+     조준(점 모양)은 발사 주문서에 담겨서 심판에게 갈 때 비로소 「진짜」가 됨 */
   var state = {
-    subs: C.subs.map(function (s) { var o = {}; for (var k in s) o[k] = s[k]; return o; }),
-    move: C.movement.gaugeStart,     // 이동 게이지 (0~1)
-    // 궤도 판: 핀 3개 [가로(거리 칸, 잠수함 쪽 끝 = 0), 세로(판 높이 %)] (캐릭터 기본 모양에서 시작) + 거리 게이지 찬 정도 (0~1)
-    //         + sel = ▲▼ 미세조정으로 움직일 「골라 둔 점」 번호 (0~2, 처음엔 가운데)
     pad: { points: defaultPoints(), fill: 0, facing: 'right', sel: C.pad.defaultSelected || 0 }
   };
+  // 화면에 지금 보이는 체력·바라보는 쪽 (어뢰가 날아가는 동안엔 심판 결과보다 늦게, 맞는 순간에 바뀜)
+  var shown = {};
+  rs.subs.forEach(function (s) { shown[s.id] = { hp: s.hp, facing: s.facing }; });
   function copyPoints(list) { return list.map(function (p) { return [p[0], p[1]]; }); }
   // 캐릭터 기본 점 모양 (설정값이 노란 상자 밖이면 상자 안으로 넣어서)
   function defaultPoints() {
@@ -28,7 +38,7 @@
     });
   }
   function clamp(v, a, b) { return Math.min(Math.max(v, a), b); }
-  function getSub(id) { return state.subs.filter(function (v) { return v.id === id; })[0]; }
+  function getSub(id) { return R.getSub(rs, id); }   // 심판이 들고 있는 잠수함 (읽기용)
 
   var seaView = $('seaView'), world = $('world'), worldBg = $('worldBg'), worldThings = $('worldThings');
 
@@ -79,8 +89,8 @@
     });
 
     // 잠수함 + 머리 위 이름·체력바 (+ 차례 화살표)
-    state.subs.forEach(function (s) {
-      var active = s.id === C.activeSubId;
+    rs.subs.forEach(function (s) {
+      var active = s.id === rs.turn.activeId;
       html += '<div class="sub ' + s.side + ' face-' + s.facing + '" id="sub-' + s.id + '" style="left:' + s.x + 'px;top:' + s.y + 'px">' +
         '<div class="tag">' +
           (active ? '<div class="turnarrow" aria-label="차례"></div>' : '') +
@@ -180,14 +190,15 @@
         ITEM_ICONS[it.type] + '<i>' + it.count + '</i></button>';
     }).join('');
 
-    setCurrent(C.current.dir, C.current.strength);
-
-    // 이동 / 에너지 (세로 통)
-    setMoveGauge(state.move);
-    setEnergyGauge(C.energy);
+    setCurrent(rs.current.dir, rs.current.strength);         // 조류는 심판 상태에서 (같은 주사위)
 
     // 내 잠수함 얼굴 창
-    var me = state.subs.filter(function (s) { return s.side === 'me'; })[0];
+    var me = rs.subs.filter(function (s) { return s.side === 'me'; })[0];
+
+    // 이동 / 에너지 (세로 통)
+    setMoveGauge(me ? me.move : C.movement.gaugeStart);
+    setEnergyGauge(me ? me.hp : C.energy);
+
     $('faceWin').innerHTML = subSvg(me ? me.color : 'yellow', false);
     $('faceName').textContent = C.character.name;
 
@@ -248,40 +259,11 @@
   }
 
   /* ---------- 곡선 계산 ----------
-     출발 = 판의 잠수함 쪽 끝, 세로 가운데(= 내 잠수함 높이) → 점1 → 점2 → 점3 을 「정확히」 지나는 부드러운 곡선
-     (자연 3차 스플라인: 점마다 꺾이지 않고 매끈하게 이어짐). 곡선은 맨 끝 핀에서 끝남(그 뒤로 이어지는 선 없음).
-     가로 x 는 「거리 칸」(잠수함 쪽 끝 = 0, 1칸 = 거리 1), 세로 y 는 판 높이 % (왼쪽을 볼 때 뒤집는 건 그릴 때만).
-     어뢰 날아가기에서도 이 함수를 씀: Game.padCurveY(거리 칸) → 그 거리에서의 높이 %. 맵 거리로는 Game.unitsToWorld(칸) */
-  function curveSpline() {
-    var k = [[0, 50]];
-    state.pad.points.forEach(function (p) {
-      var x = Math.max(p[0], k[k.length - 1][0] + 0.2);       // 가로가 겹치면 계산이 안 되므로 살짝 띄움
-      k.push([x, p[1]]);
-    });
-    var n = k.length - 1, M = [], c = [], d = [], i;
-    M[0] = M[n] = 0;                                            // 양 끝은 휘는 정도 0 (자연 스플라인)
-    // 가운데 점들의 휘는 정도 구하기 (세 줄짜리 연립방정식)
-    c[0] = 0; d[0] = 0;
-    for (i = 1; i < n; i++) {
-      var h0 = k[i][0] - k[i - 1][0], h1 = k[i + 1][0] - k[i][0];
-      var rhs = 6 * ((k[i + 1][1] - k[i][1]) / h1 - (k[i][1] - k[i - 1][1]) / h0);
-      var den = 2 * (h0 + h1) - h0 * c[i - 1];
-      c[i] = h1 / den;
-      d[i] = (rhs - h0 * d[i - 1]) / den;
-    }
-    for (i = n - 1; i >= 1; i--) M[i] = d[i] - c[i] * M[i + 1];
-    return { k: k, M: M };
-  }
-  function padCurveY(x, sp) {
-    sp = sp || curveSpline();
-    var k = sp.k, M = sp.M, n = k.length - 1, i = 0;
-    var seg = function (i) { return k[i + 1][0] - k[i][0]; };
-    if (x >= k[n][0]) return k[n][1];                           // 맨 끝 핀 뒤: 곡선은 없음(형님 지시). 어뢰 코드가 값이 필요할 때 안전하도록 끝 핀 높이를 돌려줌. 어뢰는 끝 핀 가로(sp.k[n][0])에서 끝내면 됨
-    while (i < n - 1 && x > k[i + 1][0]) i++;
-    var h = seg(i), t = x - k[i][0];
-    var b = (k[i + 1][1] - k[i][1]) / h - h * (2 * M[i] + M[i + 1]) / 6;
-    return k[i][1] + b * t + M[i] / 2 * t * t + (M[i + 1] - M[i]) / (6 * h) * t * t * t;
-  }
+     출발 = 판의 잠수함 쪽 끝, 세로 가운데(= 내 잠수함 높이) → 점1 → 점2 → 점3 을 「정확히」 지나는 부드러운 곡선.
+     계산 자체는 심판(rules.js curveSpline / curveY)에 있음 — 판에 그리는 곡선과 어뢰가 나는 길이 늘 같도록 한 곳에서만 계산
+     가로 x 는 「거리 칸」(잠수함 쪽 끝 = 0), 세로 y 는 판 높이 % (왼쪽을 볼 때 뒤집는 건 그릴 때만) */
+  function curveSpline() { return R.curveSpline(state.pad.points); }
+  function padCurveY(x, sp) { return R.curveY(sp || curveSpline(), x); }
 
   // 점 자리 + 곡선 다시 그리기
   function drawPadCurve() {
@@ -353,18 +335,18 @@
     $('energyBar').style.height = 'calc((100% - 6px) * ' + (hp / 100).toFixed(4) + ')';
     $('energyNum').textContent = hp;
   }
-  // 잠수함 그림을 지금 좌표로 옮김 (이름·체력바·화살표는 잠수함에 붙어 있어 같이 움직임)
+  // 잠수함 그림을 지금 좌표(심판 상태)로 옮김 (이름·체력바·화살표는 잠수함에 붙어 있어 같이 움직임)
   function placeSub(id) {
     var s = getSub(id), el = $('sub-' + id);
     if (!s || !el) return;
     el.style.left = s.x.toFixed(2) + 'px';
     el.style.top = s.y.toFixed(2) + 'px';
   }
-  // 잠수함이 바라보는 쪽 바꾸기 + 내 잠수함이면 궤도 판도 좌우 반전
-  function setFacing(id, facing) {
-    var s = getSub(id), el = $('sub-' + id);
-    if (!s || s.facing === facing) return;
-    s.facing = facing;
+  // 잠수함이 바라보는 쪽(심판 상태)을 화면에 반영 + 내 잠수함이면 궤도 판도 좌우 반전
+  function showFacing(id) {
+    var s = getSub(id), el = $('sub-' + id), v = shown[id];
+    if (!s || !v || v.facing === s.facing) return;
+    var facing = v.facing = s.facing;
     if (el) {
       el.classList.remove('face-left', 'face-right');
       el.classList.add('face-' + facing);
@@ -372,11 +354,12 @@
     if (s.side === 'me') { buildPad(facing); fitScaleLabels(); }
   }
 
-  /* ---------- 체력 바꾸기 (torpedo.js 가 부름) ----------
+  /* ---------- 보이는 체력 바꾸기 (torpedo.js 가 어뢰 재생 중 「맞는 순간」에 부름) ----------
+     진짜 체력은 심판이 발사 순간 이미 계산해 둠. 여기는 화면에 보이는 숫자만 바꿈
      머리 위 노란 체력바 + (내 잠수함이면) 계기판 에너지 게이지·숫자를 같이 바꿈.
      0 이 되면 「격침」: 잠수함이 회색으로 + 머리 위에 「격침」 글씨 (아직 게임 끝내기는 없음) */
   function setSubHp(id, hp) {
-    var s = getSub(id), el = $('sub-' + id);
+    var s = shown[id], el = $('sub-' + id);
     if (!s) return;
     s.hp = clamp(Math.round(hp), 0, 100);
     if (el) {
@@ -390,10 +373,40 @@
         el.querySelector('.tag').appendChild(mark);
       }
     }
-    if (s.side === 'me') {
+    if (getSub(id).side === 'me') {
       setEnergyGauge(s.hp);
     }
   }
+
+  /* =========================================================
+     주문서 창구 — 모든 행동은 여기 한 곳으로
+       조이스틱·궤도 판·발사 버튼·턴 넘기기(그리고 나중에 키보드·컴퓨터 상대·인터넷 상대)는
+       쪽지만 만들어서 Game.submit(쪽지) 로 냄 → 심판(rules.js)이 규칙대로 처리 → 결과를 화면 담당에게 알려 줌
+       화면 담당은 Game.onResult('move' | 'fire' | 'endTurn', 함수) 로 「이 결과가 오면 이렇게 그려 줘」를 등록해 둠
+       나중에 서버가 생기면: 쪽지는 서버로 보내고, 서버가 돌려준 결과로 똑같이 그리면 됨
+     ========================================================= */
+  var reactions = {};
+  function onResult(type, fn) { (reactions[type] = reactions[type] || []).push(fn); }
+  function submit(action) {
+    var res = R.apply(rs, action, C);
+    if (!res.ok) return res;                                    // 규칙에 안 맞는 쪽지는 무시 (화면도 그대로)
+    (reactions[res.type] || []).forEach(function (fn) { fn(res, action); });
+    return res;
+  }
+
+  // 이동 결과 → 잠수함 그림 옮기기 + 바라보는 쪽 + (내 잠수함이면) 이동 게이지
+  onResult('move', function (res) {
+    showFacing(res.subId);
+    if (res.moved > 0) placeSub(res.subId);
+    if (getSub(res.subId).side === 'me') setMoveGauge(res.move);
+  });
+  // (임시) 턴 넘기기 결과 → 이동 게이지 다시 가득 + 거리 게이지·DELAY 처음으로 (턴 진행을 만들면 바뀜)
+  onResult('endTurn', function (res) {
+    if (getSub(res.subId).side === 'me') setMoveGauge(res.move);
+    setFireGauge(0);                                            // 지난 턴에 쏜 거리 게이지 비우기
+    state.shot = null;
+    $('delayNum').textContent = '--';
+  });
 
   /* ---------- 턴 시작 연출: 계기판 테두리 번쩍 ---------- */
   function playTurnStart() {
@@ -436,9 +449,10 @@
 
   // 다음 단계에서 쓸 기능을 밖에서 부를 수 있게 열어 둠
   window.Game = {
+    rs: rs, submit: submit, onResult: onResult,
     cam: cam, state: state, getSub: getSub,
     applyCamera: applyCamera, focusOn: focusOn, focusOnSub: focusOnSub, playTurnStart: playTurnStart,
-    setMoveGauge: setMoveGauge, placeSub: placeSub, setFacing: setFacing,
+    setMoveGauge: setMoveGauge, placeSub: placeSub, showFacing: showFacing,
     copyPoints: copyPoints, defaultPoints: defaultPoints, padFx: padFx, u2p: u2p, unitsToWorld: unitsToWorld, padCurveY: padCurveY, curveSpline: curveSpline, setSubHp: setSubHp, setCurrent: setCurrent, drawPadCurve: drawPadCurve, setFireGauge: setFireGauge, gaugeToDistance: gaugeToDistance
   };
 

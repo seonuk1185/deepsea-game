@@ -3,7 +3,7 @@
    1) 발사를 누르고 있는 동안: 궤도 판 가운데 주황 게이지가 잠수함 쪽 끝에서 차오름
    2) 손을 떼면 멈춤 → 흰 표시가 멈춘 자리 = 터지는 거리. 왼쪽 위 DELAY 칸에 거리 칸 숫자(0 ~ 최대 거리, 반올림)
       끝(노란 한계선 = 최대 거리)까지 차면 손을 안 떼도 그 자리에서 저절로 결정 (뒤에 손을 떼도 아무 일 없음)
-   3) 정해지면 바로 어뢰 발사 (torpedo.js 의 Game.fireTorpedo). 어뢰가 날아가는 동안은 발사 버튼이 잠김
+   3) 정해지면 바로 「발사 주문서」를 냄 (Game.submit → 심판 rules.js → 재생 torpedo.js). 어뢰가 날아가는 동안은 발사 버튼이 잠김
    main.js 다음에 불러야 함 (window.Game 을 씀)
    ========================================================= */
 (function () {
@@ -60,7 +60,9 @@
     };
     delayNum.textContent = Math.round(dist);
     console.log('[발사 거리 결정]', G.state.shot);
-    if (G.fireTorpedo) G.fireTorpedo(Math.round(dist));       // 어뢰 발사! 화면 DELAY 칸과 같은 숫자(반올림한 거리 칸)에서 터짐
+    // 어뢰 발사! = 「발사 주문서」를 냄: 지금 궤도 판 점 모양 + 화면 DELAY 칸과 같은 숫자(반올림한 거리 칸)
+    //   → 심판(rules.js)이 한 발 전체를 계산 → torpedo.js 가 그 결과를 재생
+    G.submit({ type: 'fire', subId: C.activeSubId, points: G.copyPoints(G.state.pad.points), distance: Math.round(dist) });
   }
   // 전화가 오는 등 브라우저가 중간에 끊으면 = 결정하지 않고 원래대로
   function cancel(e) {

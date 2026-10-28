@@ -17,11 +17,17 @@ window.GAME_CONFIG = {
   background: { src: 'assets/bg-ruins.jpg', imgW: 1920, imgH: 1072 },
   mapName: '심해 유적',
 
+  // 주사위 시작 번호 (rules.js 「같은 주사위」). 같은 번호 + 같은 주문서 = 어느 컴퓨터에서나 같은 결과
+  //   온라인 때는 서버가 판마다 번호를 정해서 모두에게 똑같이 나눠 줌. 지금은 고정 번호
+  seed: 20261028,
+
   // 잠수함 (x, y = 세계 좌표, 맵 왼쪽 위가 0,0)
+  //   team = 같은 편끼리 같은 이름 (1:1·개인전이면 잠수함마다 다르게, 팀전이면 'A'·'B'처럼 묶음)
   subs: [
-    { id: 'me',    side: 'me',    name: '형님',     x: 300,  y: 300, hp: 82, facing: 'right', color: 'yellow' },
-    { id: 'enemy', side: 'enemy', name: '상어대장', x: 1560, y: 240, hp: 64, facing: 'left',  color: 'red' }
+    { id: 'me',    side: 'me',    team: 'A', name: '형님',     x: 300,  y: 300, hp: 82, facing: 'right', color: 'yellow' },
+    { id: 'enemy', side: 'enemy', team: 'B', name: '상어대장', x: 1560, y: 240, hp: 64, facing: 'left',  color: 'red' }
   ],
+  turnOrder: ['me', 'enemy'],   // 차례 순서 (여러 명이면 여기에 더 적으면 됨). 차례 돌리기는 다음 단계(②)에서
   activeSubId: 'me',   // 지금 차례인 잠수함 (머리 위 화살표)
   cameraOn: 'me',      // 처음에 카메라가 비추는 잠수함
 
@@ -103,7 +109,7 @@ window.GAME_CONFIG = {
     sweepTime: 1.6     // 거리 게이지가 0 → 최대 거리(limit.right)까지 차는 데 걸리는 시간 (초). 다 차면 손을 안 떼도 자동 발사. 작을수록 빠름
   },
 
-  // 어뢰 (torpedo.js) — 발사 버튼을 떼면 내 잠수함 앞코에서 출발
+  // 어뢰 (계산 = rules.js 심판, 보여 주기 = torpedo.js) — 발사 버튼을 떼면 내 잠수함 앞코에서 출발
   //   가로: 잠수함이 보는 쪽으로, 궤도 판의 거리 칸 × 48(pad.worldPerUnit) 만큼 감
   //   세로: 궤도 판 곡선 높이를 그대로 옮김. 판 세로 가운데 = 내 잠수함 높이,
   //         판 맨 위 / 맨 아래 = 잠수함 높이에서 위 / 아래로 verticalRange 만큼 (맵 높이는 600)
@@ -121,7 +127,8 @@ window.GAME_CONFIG = {
     holdTime: 0.8,       // 터진 뒤 카메라가 폭발 자리에 머무는 시간 (초) → 그다음 내 잠수함으로 돌아감
     cameraFollow: 4,     // 카메라가 어뢰를 따라가는 빠르기 (클수록 바짝 붙음)
     shake: 5,            // 폭발 때 화면 흔들림 세기 (px). 0 = 안 흔들림
-    bubbleEvery: 0.03    // 꼬리 거품이 나오는 간격 (초)
+    bubbleEvery: 0.03,   // 꼬리 거품이 나오는 간격 (초)
+    simStep: 6           // 심판(rules.js)이 어뢰 길을 계산하는 한 걸음 (맵 단위). 작을수록 촘촘하지만 계산이 많아짐
   },
 
   // 조류: 방향 4가지 'left' / 'right' / 'up' / 'down' (화면 기준 — 잠수함이 어느 쪽을 보든 그대로)
