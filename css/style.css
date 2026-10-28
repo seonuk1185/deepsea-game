@@ -376,7 +376,41 @@ button{font:inherit;color:inherit;cursor:pointer}
     background:#1B2329;color:var(--c-text);font:12px/16px var(--f-ui);text-align:center}
   .keyhelp em{font-style:normal;white-space:nowrap}
   .keyhelp small{display:block;margin-top:5px;font-size:11px;opacity:.7}
+  /* 13차: 안내 맨 아래 「키 설정」 단추 (안내 상자는 손가락·마우스를 통과시키지만 이 단추만은 눌림) */
+  .keyhelp .keyhelp-set{display:block;width:100%;margin-top:7px;padding:4px 0;border-radius:var(--r-s);border:1px solid var(--c-sub);
+    background:rgba(63,184,255,.14);color:var(--c-text);font:13px/1.2 var(--f-ui);pointer-events:auto}
+  .keyhelp .keyhelp-set:hover{background:rgba(63,184,255,.3)}
 }
+
+/* ===== 키 설정 화면 (13차, PC) — 게임 위를 어둡게 덮는 창. 내용은 keys.js 가 채움 =====
+   줄마다: 동작 이름 | 첫째 키 칸 | 둘째 키 칸. 넓은 창은 두 줄로 나란히, 넘치면 목록만 위아래로 굴림 */
+.keyset{display:none;position:absolute;inset:0;z-index:20;align-items:center;justify-content:center;padding:12px;
+  background:rgba(2,8,14,.72);font-family:var(--f-ui)}
+.keyset:not([hidden]){display:flex}
+.ks-panel{display:flex;flex-direction:column;width:100%;max-width:940px;max-height:100%;padding:12px 14px 10px;border-radius:var(--r-l);
+  background:rgba(10,24,38,.97);border:1px solid #4E6375;box-shadow:var(--sh-drop);color:var(--c-text-2)}
+.ks-head{display:flex;align-items:center;gap:8px}
+.ks-head b{flex:1;font:20px var(--f-title);color:var(--c-text);font-weight:400}
+.ks-btn{padding:5px 12px;border-radius:var(--r-m);border:1px solid #6B7780;background:#1B2329;color:var(--c-text);font:14px var(--f-ui)}
+.ks-btn:hover{border-color:var(--c-sub)}
+.ks-btn.main{border-color:var(--c-sub);background:rgba(63,184,255,.18)}
+.ks-note{margin:8px 0 6px;padding:5px 9px;border-radius:var(--r-s);background:rgba(255,255,255,.05);font-size:14px;color:var(--c-text-2);min-height:28px}
+.ks-note.warn{background:rgba(255,197,61,.14);color:var(--c-warn)}
+.ks-note.ok{background:rgba(52,208,123,.12);color:var(--c-ok)}
+.ks-list{display:grid;grid-template-columns:1fr 1fr;column-gap:18px;row-gap:3px;overflow-y:auto;min-height:0;padding-right:2px}
+.ks-row{display:grid;grid-template-columns:1fr 104px 104px;gap:5px;align-items:center;padding:2px 4px;border-radius:var(--r-s)}
+.ks-row.spare .ks-name{opacity:.6}
+.ks-row.flash{background:rgba(255,197,61,.16)}
+.ks-name{font-size:14px;color:var(--c-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ks-slot{height:26px;padding:0 4px;border-radius:4px;border:1px solid #6B7780;border-bottom-width:2px;background:#1B2329;color:var(--c-text);
+  font:13px var(--f-ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ks-slot:hover{border-color:var(--c-sub)}
+.ks-slot.none{color:#6E8294}
+.ks-slot.wait{border-color:var(--c-warn);background:rgba(255,197,61,.18);color:var(--c-warn);animation:kswait 1s ease-in-out infinite}
+@keyframes kswait{50%{background:rgba(255,197,61,.05)}}
+.ks-foot{margin-top:7px;font-size:12px;line-height:1.4;opacity:.8}
+.ks-foot b{color:var(--c-text);font-weight:400}
+@media (max-width:820px){ .ks-list{grid-template-columns:1fr} }
 @media (any-pointer:coarse){
   :root{ --nudge-room:41px; }
   .joy{display:block} .nudge{display:flex} .pad{gap:3px}
