@@ -184,11 +184,16 @@
     $('mapName').textContent = C.mapName;
 
     // 아이템 4칸 (계기판 시간·DELAY 칸 바로 위 가로 한 줄)
-    $('items').innerHTML = C.items.map(function (it) {
-      if (!it.type) return '<button class="slot" aria-label="빈 칸"></button>';
-      return '<button class="slot full' + (it.selected ? ' sel' : '') + '" aria-label="' + ITEM_NAMES[it.type] + '">' +
+    $('items').innerHTML = C.items.map(function (it, i) {
+      if (!it.type) return '<button class="slot" data-i="' + i + '" aria-label="빈 칸"></button>';
+      return '<button class="slot full' + (it.selected ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + ITEM_NAMES[it.type] + '">' +
         ITEM_ICONS[it.type] + '<i>' + it.count + '</i></button>';
     }).join('');
+    // (12차) 칸을 누르면(또는 PC 키 1~4) 그 칸이 「골라짐」 = 노란 테두리. 아이템 쓰기는 아직 없음
+    $('items').addEventListener('click', function (e) {
+      var b = e.target.closest('.slot');
+      if (b) selectItem(+b.getAttribute('data-i'));
+    });
 
     setCurrent(rs.current.dir, rs.current.strength);         // 조류는 심판 상태에서 (같은 주사위)
 
@@ -203,6 +208,14 @@
     $('faceName').textContent = C.character.name;
 
     buildPad(me ? me.facing : 'right');
+  }
+
+  // 아이템 칸 고르기 (0~3). 빈 칸은 못 고름. 고른 칸만 노란 테두리
+  function selectItem(i) {
+    var it = C.items[i];
+    if (!it || !it.type) return;
+    C.items.forEach(function (x, k) { x.selected = k === i; });
+    Array.prototype.forEach.call($('items').children, function (el, k) { el.classList.toggle('sel', k === i); });
   }
 
   /* ---------- 궤도 판 ----------
@@ -408,9 +421,45 @@
     $('delayNum').textContent = '--';
   });
 
-  /* ---------- 턴 시작 연출: 계기판 테두리 번쩍 ---------- */
+  /* ---------- 턴 시작 연출: 계기판 테두리 번쩍 ----------
+     (12차) 계기판은 가운데(궤도 판 칸)만 위로 솟은 모양이라, 예전처럼 네모 테두리를 번쩍이면
+     솟은 칸 위로 옛날 평평한 줄이 지나가고 솟은 칸 옆·위는 안 번쩍였음 → 실제 모양대로 선을 그려서 번쩍이게 함
+       노란 선 = 양옆 낮은 칸 윗변 → 솟은 칸 왼쪽 옆 → 둥근 윗변 → 오른쪽 옆 → 낮은 칸 윗변
+       안쪽 노란 빛 = 같은 모양 안쪽으로만 번짐 (바깥 바다 쪽으로는 안 번짐)
+     솟은 칸 금속판(.pad::before) 자리는 style.css 와 같은 숫자로 계산: 판 칸 양옆 6px 바깥, 맨 위 = 계기판 위 - 솟은 높이, 위 모서리 둥글기 14px */
+  var flashSvg = null;
+  function buildTurnFlash() {
+    var dash = $('dash'), pad = dash.querySelector('.pad');
+    if (!flashSvg) {
+      flashSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      flashSvg.setAttribute('class', 'turnflash-svg');
+      flashSvg.setAttribute('aria-hidden', 'true');
+      flashSvg.innerHTML =
+        '<defs><clipPath id="tfClip"><path id="tfShape"/></clipPath>' +
+        '<filter id="tfBlur" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="6"/></filter></defs>' +
+        '<g clip-path="url(#tfClip)"><path id="tfGlow" fill="none" stroke="rgba(255,210,63,.8)" stroke-width="16" filter="url(#tfBlur)"/></g>' +
+        '<path id="tfLine" fill="none" stroke="#FFD23F" stroke-width="3" stroke-linejoin="round"/>';
+      dash.appendChild(flashSvg);
+    }
+    var d = dash.getBoundingClientRect(), p = pad.getBoundingClientRect();
+    var ox = d.left + dash.clientLeft, oy = d.top + dash.clientTop;    // 계기판 안쪽 왼쪽 위 = (0, 0)
+    var W = dash.clientWidth, H = dash.clientHeight;
+    var low = -dash.clientTop + 1.5;                                    // 낮은 칸 윗변 (밝은 테두리 줄 위에 겹침)
+    var top = p.top - 7 - oy + 1.5;                                     // 솟은 칸 윗변
+    var xa = p.left - 6 - ox + 1.5, xb = p.right + 6 - ox - 1.5;        // 솟은 칸 왼쪽·오른쪽 옆
+    var r = 12.5;                                                       // 둥근 모서리 (14 - 선 굵기 절반)
+    var f = function (v) { return v.toFixed(1); };
+    var outline = 'M0 ' + f(low) + ' L' + f(xa) + ' ' + f(low) + ' L' + f(xa) + ' ' + f(top + r) +
+      ' A' + r + ' ' + r + ' 0 0 1 ' + f(xa + r) + ' ' + f(top) + ' L' + f(xb - r) + ' ' + f(top) +
+      ' A' + r + ' ' + r + ' 0 0 1 ' + f(xb) + ' ' + f(top + r) + ' L' + f(xb) + ' ' + f(low) + ' L' + f(W) + ' ' + f(low);
+    var shape = outline + ' L' + f(W) + ' ' + f(H) + ' L0 ' + f(H) + ' Z';   // 계기판 전체 모양 (빛이 안쪽으로만 번지게 자르는 틀)
+    flashSvg.querySelector('#tfLine').setAttribute('d', outline);
+    flashSvg.querySelector('#tfShape').setAttribute('d', shape);
+    flashSvg.querySelector('#tfGlow').setAttribute('d', shape);        // 빛은 둘레 전체(옛날처럼 네 변 안쪽) — 모양만 새것
+  }
   function playTurnStart() {
     var dash = $('dash');
+    buildTurnFlash();
     dash.classList.remove('turnflash');
     void dash.offsetWidth;            // 애니메이션 다시 시작하게
     dash.classList.add('turnflash');
@@ -426,6 +475,7 @@
     measureCamera();
     if (cam.viewW && cam.viewH) focusOn(cx, cy);
     fitScaleLabels();
+    if (flashSvg) buildTurnFlash();   // 번쩍 테두리도 새 크기에 맞게
   }
 
   function init() {
@@ -453,7 +503,7 @@
     cam: cam, state: state, getSub: getSub,
     applyCamera: applyCamera, focusOn: focusOn, focusOnSub: focusOnSub, playTurnStart: playTurnStart,
     setMoveGauge: setMoveGauge, placeSub: placeSub, showFacing: showFacing,
-    copyPoints: copyPoints, defaultPoints: defaultPoints, padFx: padFx, u2p: u2p, unitsToWorld: unitsToWorld, padCurveY: padCurveY, curveSpline: curveSpline, setSubHp: setSubHp, setCurrent: setCurrent, drawPadCurve: drawPadCurve, setFireGauge: setFireGauge, gaugeToDistance: gaugeToDistance
+    copyPoints: copyPoints, defaultPoints: defaultPoints, padFx: padFx, u2p: u2p, unitsToWorld: unitsToWorld, padCurveY: padCurveY, curveSpline: curveSpline, setSubHp: setSubHp, setCurrent: setCurrent, selectItem: selectItem, drawPadCurve: drawPadCurve, setFireGauge: setFireGauge, gaugeToDistance: gaugeToDistance
   };
 
   init();

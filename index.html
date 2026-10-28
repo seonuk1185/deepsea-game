@@ -39,6 +39,9 @@
     <div class="mapname" id="mapName">심해 유적</div>
     <!-- 이동 조이스틱: 손잡이를 끄는 방향으로 내 잠수함이 움직임 (move.js) -->
     <div class="joy" id="joy" aria-label="이동 조이스틱"><i></i></div>
+    <!-- PC(마우스 있는 컴퓨터)에서만 보이는 키보드 안내: 오른쪽 아래 작은 「?」 → 누르면(또는 ? 키) 키 목록. 내용은 keys.js 가 채움 -->
+    <button class="keyhelp-btn" id="btnKeyHelp" aria-label="키보드 안내" title="키보드 안내 (?)">?</button>
+    <div class="keyhelp" id="keyHelp" hidden></div>
   </div>
 
   <!-- ===== 아래 금속 계기판 ===== -->
@@ -120,5 +123,6 @@
 <script src="js/pad.js"></script>
 <script src="js/fire.js"></script>
 <script src="js/torpedo.js"></script>
+<script src="js/keys.js"></script>     <!-- PC 키보드 (12차). move·pad·fire 다음에 -->
 </body>
 </html>

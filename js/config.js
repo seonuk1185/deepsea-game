@@ -75,7 +75,8 @@ window.GAME_CONFIG = {
     marginX: 10,         // 맵 왼쪽·오른쪽 끝에서 띄울 거리
     marginTop: 50,       // 맵 위 끝에서 띄울 거리 (머리 위 이름표가 잘리지 않게)
     marginBottom: 30,    // 맵 아래 끝(바닥)에서 띄울 거리
-    cameraFollow: 5      // 카메라가 잠수함을 따라가는 빠르기 (클수록 바짝 붙음)
+    cameraFollow: 5,     // 카메라가 잠수함을 따라가는 빠르기 (클수록 바짝 붙음)
+    keyPanSpeed: 700     // PC 화살표 키로 화면(바다)을 둘러보는 빠르기 (화면 px/초)
   },
 
   // 조이스틱 손잡이
@@ -102,6 +103,40 @@ window.GAME_CONFIG = {
     nudgeDelay: 350,   // 꾹 누르고 있으면: 이 시간(1/1000초) 뒤부터
     nudgeRepeat: 80,   //                    이 간격마다 한 칸씩 계속 움직임
     defaultSelected: 1 // 처음에 골라져 있는 점 (0 = 점1, 1 = 점2(가운데), 2 = 점3)
+  },
+
+  // PC 키보드 조작 (12차, 임시 기본 키 — 나중에 「키 설정」 화면이 이 값을 바꿈)
+  //   키 이름은 「자판 위 자리」 이름(KeyW = W 자리). 한글 입력 상태여도 같은 자리면 그대로 작동
+  //   한 동작에 키를 여러 개 넣을 수 있음. 빈 칸 [] = 아직 키 없음. 키 이름 목록: ArrowUp/Down/Left/Right, KeyA~KeyZ,
+  //   Digit0~9, Numpad0~9, Space, Enter, Tab, F1~F12, PageUp, PageDown, Slash(?/ 키) …
+  //   Ctrl·Alt 를 같이 누르면 게임이 안 받음 (Ctrl+R 새로고침 같은 브라우저 기능은 그대로)
+  keys: {
+    up:        ['KeyW'],          // 잠수함 이동 위   (두 방향을 같이 누르면 대각선)
+    down:      ['KeyS'],          // 잠수함 이동 아래
+    left:      ['KeyA'],          // 잠수함 이동 왼쪽
+    right:     ['KeyD'],          // 잠수함 이동 오른쪽
+    camUp:     ['ArrowUp'],       // 화면(바다) 둘러보기 위 — 손가락으로 바다를 미는 것과 같음 (잠수함 따라가기 멈춤)
+    camDown:   ['ArrowDown'],     // 화면 둘러보기 아래
+    camLeft:   ['ArrowLeft'],     // 화면 둘러보기 왼쪽
+    camRight:  ['ArrowRight'],    // 화면 둘러보기 오른쪽
+    fire:      ['Space'],         // 발사: 꾹 누르면 거리 게이지가 참, 떼면 발사 (발사 버튼과 똑같음)
+    item1:     ['Digit1', 'Numpad1'],   // 아이템 1번 칸 고르기
+    item2:     ['Digit2', 'Numpad2'],   // 아이템 2번 칸
+    item3:     ['Digit3', 'Numpad3'],   // 아이템 3번 칸
+    item4:     ['Digit4', 'Numpad4'],   // 아이템 4번 칸
+    // 궤도 점 올리기·내리기 (형님 자판 사진대로: Insert·Home·PageUp 줄 = ▲, Delete·End·PageDown 줄 = ▼, 세로 한 줄 = 점 하나)
+    //   누르면 그 점이 골라지고 한 칸 움직임, 꾹 누르면 ▲▼ 버튼처럼 계속. 점1 = 잠수함에 가장 가까운 점
+    //   ▲ = 늘 판 위쪽 (잠수함이 왼쪽을 봐도 같음)
+    pin1Up:    ['Insert'],        // 점1 ▲
+    pin1Down:  ['Delete'],        // 점1 ▼
+    pin2Up:    ['Home'],          // 점2 ▲
+    pin2Down:  ['End'],           // 점2 ▼
+    pin3Up:    ['PageUp'],        // 점3 ▲
+    pin3Down:  ['PageDown'],      // 점3 ▼
+    //   (예비) 점만 고르기 pin1·pin2·pin3, 고른 점 ▲▼ nudgeUp·nudgeDown 도 keys.js 에 준비돼 있음 — 여기에 줄을 더하면 바로 작동
+    reset:     ['F1'],            // ↺ 점 기본 모양으로 (브라우저 도움말 창은 안 뜨게 막음)
+    endTurn:   ['Tab'],           // 턴 넘기기 (버튼 사이 이동은 막음)
+    help:      ['Slash']          // 키 안내 열기/닫기 (? 키)
   },
 
   // 발사 버튼 꾹 누르기 → 거리(DELAY) 정하기

@@ -8,6 +8,7 @@
       꾹 누르고 있으면 0.35초 뒤부터 0.08초마다 계속 움직임. 노란 상자 위·아래 변에서 멈춤
    4) ↺(다시) 버튼: 점을 캐릭터 기본 모양으로 되돌림 (골라 둔 점은 그대로)
    조이스틱을 누른 채 다른 손가락으로 점을 끌어도 됨. 판 위에서 끌어도 바다 화면은 안 움직임
+   (12차) 키보드도 같은 코드를 씀: 1·2·3 = 점 고르기, Q·E = ▲▼(꾹 누르면 계속), R = ↺ (keys.js 가 Game.padKeys 를 부름)
    main.js 다음에 불러야 함 (window.Game 을 씀)
    ========================================================= */
 (function () {
@@ -50,8 +51,7 @@
     var py = r.top + G.state.pad.points[i][1] / 100 * r.height;
     drag = { id: e.pointerId, i: i, dy: e.clientY - py };      // 잡은 자리 차이를 기억 → 톡 누르기만 하면 점이 안 움직임
     screen.setPointerCapture(e.pointerId);                     // 손가락이 판 밖으로 나가도 계속 받음
-    G.state.pad.sel = i;                                       // 누른 점 = 골라 둔 점 (▲▼ 대상)
-    G.drawPadCurve();
+    selectPin(i);                                              // 누른 점 = 골라 둔 점 (▲▼ 대상)
     setHeld(i, true);
   });
 
@@ -73,6 +73,13 @@
   screen.addEventListener('pointercancel', release);
   screen.addEventListener('lostpointercapture', release);
 
+  // 점 고르기 (판에서 점을 누르거나, 키보드 1·2·3)
+  function selectPin(i) {
+    if (!G.state.pad.points[i]) return;
+    G.state.pad.sel = i;
+    G.drawPadCurve();
+  }
+
   /* ---------- ▲▼ 미세조정: 골라 둔 점을 한 칸씩 ---------- */
   // dir = -1 (▲ 위로) / +1 (▼ 아래로). 화면 위쪽이 세로 0% 라서 위로 = 숫자 작아짐
   function nudge(dir) {
@@ -83,38 +90,49 @@
     G.drawPadCurve();
   }
 
+  // ▲ 또는 ▼ 하나 = 「꾹 누르기」 담당 하나. start(누른 것) / stop(누른 것) 은 버튼(손가락·마우스)과 키보드(Q·E)가 같이 씀
+  //   누른 것 = 손가락 번호, 키보드는 'key'
   function setupNudge(btn, dir) {
-    var hold = null;   // { id: 손가락 번호, t: 타이머 }
-    function stop(e) {
-      if (!hold || (e && e.pointerId !== hold.id)) return;
-      clearTimeout(hold.t); clearInterval(hold.t);
-      hold = null;
-      btn.classList.remove('held');
-    }
-    btn.addEventListener('pointerdown', function (e) {
-      if (hold) return;
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
-      e.preventDefault();
-      btn.setPointerCapture(e.pointerId);
-      btn.classList.add('held');
-      hold = { id: e.pointerId, t: 0 };
+    var hold = null;   // { id: 누른 것, t: 타이머 }
+    function start(id) {
+      if (hold) return false;
+      btn.classList.add('held');                                      // 키로 눌러도 버튼이 눌린 모양
+      hold = { id: id, t: 0 };
       nudge(dir);                                                     // 누르는 순간 한 칸
       hold.t = setTimeout(function () {                               // 꾹 누르고 있으면 계속
         if (!hold) return;
         hold.t = setInterval(function () { nudge(dir); }, C.pad.nudgeRepeat);
       }, C.pad.nudgeDelay);
+      return true;
+    }
+    function stop(id) {
+      if (!hold || hold.id !== id) return;
+      clearTimeout(hold.t); clearInterval(hold.t);
+      hold = null;
+      btn.classList.remove('held');
+    }
+    btn.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      e.preventDefault();
+      if (start(e.pointerId)) btn.setPointerCapture(e.pointerId);
     });
-    btn.addEventListener('pointerup', stop);
-    btn.addEventListener('pointercancel', stop);
-    btn.addEventListener('lostpointercapture', stop);
+    function stopPointer(e) { stop(e.pointerId); }
+    btn.addEventListener('pointerup', stopPointer);
+    btn.addEventListener('pointercancel', stopPointer);
+    btn.addEventListener('lostpointercapture', stopPointer);
+    return { start: start, stop: stop };
   }
-  setupNudge(document.getElementById('btnNudgeUp'), -1);
-  setupNudge(document.getElementById('btnNudgeDown'), 1);
+  var nudgeUp = setupNudge(document.getElementById('btnNudgeUp'), -1);
+  var nudgeDown = setupNudge(document.getElementById('btnNudgeDown'), 1);
 
   /* ---------- ↺ 다시: 캐릭터 기본 모양으로 ---------- */
-  document.getElementById('btnPadReset').addEventListener('click', function () {
+  function resetPins() {
     G.state.pad.points = G.defaultPoints();
     if (drag) { drag = null; }
     G.drawPadCurve();
-  });
+  }
+  document.getElementById('btnPadReset').addEventListener('click', resetPins);
+
+  // 키보드(keys.js)가 쓰는 것 — 화면 버튼과 똑같은 코드
+  G.padKeys = { select: selectPin, up: nudgeUp, down: nudgeDown, reset: resetPins };
 })();

@@ -116,10 +116,11 @@ button{font:inherit;color:inherit;cursor:pointer}
 /* 금속 결 */
 .dash::before{content:"";position:absolute;inset:0;pointer-events:none;
   background:repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 1px,transparent 1px 3px)}
-/* 턴이 넘어온 순간: 테두리가 노랗게 번쩍 (0.45초 × 3번) */
-.dash::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:0;
-  border-top:3px solid var(--c-hp);box-shadow:inset 0 0 16px rgba(255,210,63,.75)}
-.dash.turnflash::after{animation:flash .45s ease-in-out 3}
+/* 턴이 넘어온 순간: 테두리가 노랗게 번쩍 (0.45초 × 3번)
+   12차: 네모 테두리 대신 main.js buildTurnFlash 가 계기판 진짜 모양(가운데 솟은 칸 포함)대로 선을 그림
+   → 노란 선 + 안쪽으로만 번지는 노란 빛. 계기판·솟은 칸 위에 겹쳐 놓고, 평소엔 안 보임 */
+.turnflash-svg{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:3;opacity:0}
+.dash.turnflash .turnflash-svg{animation:flash .45s ease-in-out 3}
 @keyframes flash{0%,100%{opacity:0}50%{opacity:1}}
 
 .mod{position:relative;border-radius:var(--r-l);background:linear-gradient(#7E8A93,#5E6A73);box-shadow:var(--sh-bevel),var(--sh-drop);padding:6px;flex:none}
@@ -159,9 +160,6 @@ button{font:inherit;color:inherit;cursor:pointer}
   background:repeating-linear-gradient(90deg,rgba(255,255,255,.04) 0 1px,transparent 1px 3px),
     linear-gradient(180deg,var(--metal-hi) 0,var(--metal) 10px,var(--metal) 100%);
   box-shadow:0 -3px 8px rgba(0,0,0,.55)}
-/* 턴 시작 번쩍: 솟은 칸 테두리도 같이 */
-.dash.turnflash .pad::before{animation:bumpflash .45s ease-in-out 3}
-@keyframes bumpflash{50%{border-top-color:var(--c-hp);box-shadow:0 -3px 8px rgba(0,0,0,.55),inset 0 3px 12px rgba(255,210,63,.75)}}
 .padmain{position:relative;flex:1;min-width:0;display:flex;flex-direction:column}
 /* ▲▼ 미세조정 띠 (판 오른쪽 옆, 폭 28px). 보이는 버튼은 작아도 손가락 닿는 범위는 위아래 44px 이상 (::after) */
 .nudge{width:28px;flex:none;display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;gap:2px}
@@ -336,6 +334,54 @@ button{font:inherit;color:inherit;cursor:pointer}
   .menu{width:52px;height:52px} .menu span{width:40px;height:40px;line-height:38px;font-size:18px}
   .mapname{font-size:15px} .chat{font-size:15px;line-height:22px}
 }
+/* ===== PC 창 (12차): 가로 1180px 이상 + 높이 600px 이상 =====
+   (흔한 PC 창: 1280×720, 1366×768 노트북의 실제 창 약 1366×650, 1920×1080 화면 125% 배율 = 약 1536×730)
+   태블릿 크기에서 계기판을 조금 더 높여서 궤도 판을 세로로 크게 (화면 높이의 22~29%. 폰은 31%)
+   판이 옆으로만 너무 길어지지 않게 「판 가로 ≤ 판 세로 × 4.6」으로 막음 → 판 모양이 어뢰가 실제로 나는 모양(가로 1920 : 세로 440 ≈ 4.4)과 비슷
+   남는 가로 자리는 부품 사이 틈으로 고르게 나눔 (시간 칸은 왼쪽 끝, 발사 칸은 오른쪽 끝 그대로) */
+@media (min-width:1180px) and (min-height:600px) and (orientation:landscape){
+  :root{ --dash-h:136px; --dash-rise:36px; }
+  .dash{justify-content:space-between}
+  .pad{max-width:calc((var(--dash-h) + var(--dash-rise) - 12px) * 4.6 + var(--nudge-room,41px))}   /* 판 세로 ≈ 계기판 높이 + 솟은 높이 - 여백 12. --nudge-room = ▲▼ 띠 + 틈 (마우스 PC 는 띠가 없어서 0) */
+  .fire{height:56px;font-size:28px} .skip{height:42px}
+}
+/* 키 큰 PC 창 (높이 760 이상, 1600×900 상자 포함): 계기판을 한 번 더 높이고 양옆 부품도 조금 크게 */
+@media (min-width:1180px) and (min-height:760px) and (orientation:landscape){
+  :root{ --dash-h:150px; --dash-rise:44px; }
+  .timer{width:116px} .lcd.big span,.lcd.big s{font-size:56px}
+  .face{width:124px} .win svg{width:96px;height:60px}
+  .act{width:132px} .fire{height:62px;font-size:30px} .skip{height:46px;font-size:18px}
+  .nudge{width:44px} .nbtn{max-height:72px;font-size:18px}
+}
+
+/* ===== 마우스 있는 컴퓨터 (12차) =====
+   키보드가 대신하니 화면 조이스틱(→ WASD)과 판 옆 ▲▼ 띠·「핀N」 글씨(→ Ins/Del·Home/End·PgUp/PgDn)는 숨김 → 궤도 판이 그만큼 넓어짐
+   (판 모눈은 main.js fitScaleLabels 가 판 가로에 맞춰 늘 정사각형으로 다시 맞춤. 골라 둔 점의 노란 빛은 그대로 보임)
+   단, 손가락 화면도 있는 기기(터치 노트북·태블릿)는 둘 다 그대로 보임
+   오른쪽 아래 작은 「?」 = 키보드 안내 (누르거나 ? 키 → 키 목록). 화면 맨 위는 나중에 채팅 자리라 비워 둠 */
+.keyhelp-btn,.keyhelp{display:none}
+@media (hover:hover) and (pointer:fine){
+  :root{ --nudge-room:0px; }
+  .joy,.nudge{display:none}
+  .pad{gap:0}
+  .keyhelp-btn{display:block;position:absolute;right:calc(10px + var(--safe-r));bottom:6px;width:26px;height:26px;border-radius:50%;
+    border:1px solid #4E6375;background:rgba(4,12,20,.7);color:var(--c-text-2);font:15px/24px var(--f-ui);text-align:center;opacity:.75}
+  .keyhelp-btn:hover,.keyhelp-btn.on{opacity:1;color:var(--c-text);border-color:var(--c-sub)}
+  .keyhelp{position:absolute;right:calc(10px + var(--safe-r));bottom:38px;padding:8px 12px 7px;border-radius:var(--r-m);
+    background:rgba(4,12,20,.86);border:1px solid #4E6375;font:13px/1.3 var(--f-ui);color:var(--c-text-2);pointer-events:none}
+  .keyhelp:not([hidden]){display:block}
+  .keyhelp > b{display:block;margin-bottom:5px;color:var(--c-text);font-weight:400;font-size:14px}
+  .keyhelp p{display:flex;justify-content:space-between;gap:14px;margin:3px 0}
+  .keyhelp kbd{display:inline-block;min-width:20px;padding:1px 5px;margin-right:3px;border-radius:4px;border:1px solid #6B7780;border-bottom-width:2px;
+    background:#1B2329;color:var(--c-text);font:12px/16px var(--f-ui);text-align:center}
+  .keyhelp em{font-style:normal;white-space:nowrap}
+  .keyhelp small{display:block;margin-top:5px;font-size:11px;opacity:.7}
+}
+@media (any-pointer:coarse){
+  :root{ --nudge-room:41px; }
+  .joy{display:block} .nudge{display:flex} .pad{gap:3px}
+}
+
 /* 아주 큰 PC 화면: 가운데 1600×900 상자 안에 */
 @media (min-width:1601px) and (min-height:901px){
   .game{inset:auto;left:50%;top:50%;width:1600px;height:900px;transform:translate(-50%,-50%)}
