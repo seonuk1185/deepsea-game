@@ -233,7 +233,8 @@
         돌려주는 결과:
           samples = 날아간 길 [[시간(초), x, y], ...] (화면이 이걸 따라 어뢰를 움직임)
           events  = 데미지 목록 [{ t: 몇 초에, id, kind: 'graze'(스침)|'blast'(폭발), dmg, dist, hpAfter }]
-          end     = { kind: 'boom'(펑) | 'out'(맵 밖), t, x, y, u }   sunk = 이번에 격침된 잠수함들
+          end     = { kind: 'boom'(펑) | 'out'(맵 왼쪽·오른쪽 밖 / 안전장치), t, x, y, u }   sunk = 이번에 격침된 잠수함들
+                    (2026-10-28) 맵 위·아래 밖은 'out' 이 아님 — 계속 날아감. 그래서 'boom' 의 y 가 맵 밖(0 미만·600 초과)일 수도 있음
      ========================================================= */
   var CURRENT_VEC = { right: [1, 0], left: [-1, 0], up: [0, -1], down: [0, 1] };   // 조류가 미는 쪽 (화면 기준, 아래가 +)
 
@@ -286,7 +287,14 @@
         else if (inside[s.id]) { grazed[s.id] = true; hurt(s.id, T.grazeDamage, 'graze', time); }
       });
 
-      if (x < 0 || x > C.world.w || y < 0 || y > C.world.h) { end = { kind: 'out' }; break; }   // 맵 밖 → 연기만
+      // 맵 왼쪽·오른쪽 끝 밖 → 연기만 (데미지 없음, 예전 그대로)
+      if (x < 0 || x > C.world.w) { end = { kind: 'out' }; break; }
+      // (2026-10-28 형님 결정) 맵 위·아래 끝은 나가도 안 사라짐 → 곡선(+ 조류)대로 계속 날아가다 돌아오고, 정한 거리에서 그대로 펑
+      //   (위·아래 밖에서 터져도 폭발 데미지는 거리대로 — 맵 끝 가까이 있는 잠수함은 범위에 걸릴 수 있음)
+      // 안전장치: 혹시라도 끝없이 날지 않게 「날아간 시간 maxFlightTime 초」 또는 「맵 위·아래 밖으로 maxOutside 넘게」면
+      //   거기서 연기만 남기고 끝 (데미지 없음). 지금 궤도 판으로 나올 수 있는 길은 이 값에 한참 못 미침 (node 로 확인)
+      var outLimit = T.maxOutside != null ? T.maxOutside : C.world.h;
+      if (time > (T.maxFlightTime || 15) || y < -outLimit || y > C.world.h + outLimit) { end = { kind: 'out', lost: true }; break; }
       if (done) end = { kind: 'boom' };
     }
 
