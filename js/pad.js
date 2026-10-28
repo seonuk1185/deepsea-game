@@ -8,7 +8,8 @@
       꾹 누르고 있으면 0.35초 뒤부터 0.08초마다 계속 움직임. 노란 상자 위·아래 변에서 멈춤
    4) ↺(다시) 버튼: 점을 캐릭터 기본 모양으로 되돌림 (골라 둔 점은 그대로)
    조이스틱을 누른 채 다른 손가락으로 점을 끌어도 됨. 판 위에서 끌어도 바다 화면은 안 움직임
-   (12차) 키보드도 같은 코드를 씀: 1·2·3 = 점 고르기, Q·E = ▲▼(꾹 누르면 계속), R = ↺ (keys.js 가 Game.padKeys 를 부름)
+   (12차) 키보드도 같은 한 칸 계산(nudge)을 씀: Ins/Del·Home/End·PgUp/PgDn = 점마다 따로 ▲▼(꾹 누르면 계속, 키보드는 더 빠름), F1 = ↺
+          (keys.js 가 Game.padKeys 를 부름)
    main.js 다음에 불러야 함 (window.Game 을 씀)
    ========================================================= */
 (function () {
@@ -82,8 +83,9 @@
 
   /* ---------- ▲▼ 미세조정: 골라 둔 점을 한 칸씩 ---------- */
   // dir = -1 (▲ 위로) / +1 (▼ 아래로). 화면 위쪽이 세로 0% 라서 위로 = 숫자 작아짐
-  function nudge(dir) {
-    var p = G.state.pad.points[G.state.pad.sel];
+  //   i = 몇 번째 점 (안 주면 골라 둔 점 — ▲▼ 버튼)
+  function nudge(dir, i) {
+    var p = G.state.pad.points[i === undefined ? G.state.pad.sel : i];
     if (!p) return;
     var y = Math.round((p[1] + dir * C.pad.nudgeStep) * 1000) / 1000;   // 소수 찌꺼기 없이 딱 한 칸
     p[1] = clampY(y);
@@ -125,6 +127,34 @@
   var nudgeUp = setupNudge(document.getElementById('btnNudgeUp'), -1);
   var nudgeDown = setupNudge(document.getElementById('btnNudgeDown'), 1);
 
+  /* ---------- (12차 보강) PC 점 키: 점마다 따로 꾹 누르기 ----------
+     Insert·Home·PageUp / Delete·End·PageDown 은 「그 점」을 바로 움직임 (골라 둔 점이 아니라)
+     → 점마다 꾹 누르기 담당이 따로 있어서, 점1 ▲ 와 점3 ▼ 를 같이 누르면 둘 다 동시에 움직이고, 하나를 떼도 다른 하나는 계속
+     빠르기는 키보드 전용 값(config.js pad.keyRepeatDelay·keyRepeatEvery). 한 번 누를 때 한 칸(nudgeStep)은 버튼과 같음
+     폰 ▲▼ 버튼은 위 setupNudge 그대로 (골라 둔 점, 0.35초 뒤 0.08초마다) */
+  var pinHolds = [];   // [몇 번째 점] = { dir: -1/+1, t: 타이머 }
+  // first = true 면 누르는 순간 한 칸 움직이고 시작, false 면 한 칸 없이 기다렸다가 계속 (같은 점 반대 키를 뗐을 때 남은 쪽 이어가기용)
+  function pinHoldStart(i, dir, first) {
+    if (!G.state.pad.points[i]) return;
+    pinHoldStop(i);
+    var h = { dir: dir, t: 0 };
+    pinHolds[i] = h;
+    if (first !== false) nudge(dir, i);
+    h.t = setTimeout(function () {
+      if (pinHolds[i] !== h) return;
+      h.t = setInterval(function () { nudge(dir, i); }, C.pad.keyRepeatEvery);
+    }, C.pad.keyRepeatDelay);
+  }
+  function pinHoldStop(i) {
+    var h = pinHolds[i];
+    if (!h) return;
+    clearTimeout(h.t); clearInterval(h.t);
+    pinHolds[i] = null;
+  }
+  function pinHoldStopAll() {
+    for (var i = 0; i < pinHolds.length; i++) pinHoldStop(i);
+  }
+
   /* ---------- ↺ 다시: 캐릭터 기본 모양으로 ---------- */
   function resetPins() {
     G.state.pad.points = G.defaultPoints();
@@ -134,5 +164,7 @@
   document.getElementById('btnPadReset').addEventListener('click', resetPins);
 
   // 키보드(keys.js)가 쓰는 것 — 화면 버튼과 똑같은 코드
-  G.padKeys = { select: selectPin, up: nudgeUp, down: nudgeDown, reset: resetPins };
+  //   pinStart(점, 방향, 첫칸?) / pinStop(점) / pinStopAll() = 점마다 따로 꾹 누르기 (점 키 전용)
+  G.padKeys = { select: selectPin, up: nudgeUp, down: nudgeDown, reset: resetPins,
+                pinStart: pinHoldStart, pinStop: pinHoldStop, pinStopAll: pinHoldStopAll };
 })();

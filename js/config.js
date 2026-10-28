@@ -102,6 +102,10 @@ window.GAME_CONFIG = {
     nudgeStep: 1,
     nudgeDelay: 350,   // 꾹 누르고 있으면: 이 시간(1/1000초) 뒤부터
     nudgeRepeat: 80,   //                    이 간격마다 한 칸씩 계속 움직임
+    // PC 점 키(Ins/Del·Home/End·PgUp/PgDn) 꾹 누르기 — 버튼보다 빠르게 (형님 지시). 한 번 누르면 한 칸은 버튼과 같음(nudgeStep)
+    //   180 / 35 = 0.18초 뒤부터 1초에 약 28칸 (버튼은 0.35초 뒤부터 1초에 12.5칸). 더 빠르게 = 숫자를 작게
+    keyRepeatDelay: 180,
+    keyRepeatEvery: 35,
     defaultSelected: 1 // 처음에 골라져 있는 점 (0 = 점1, 1 = 점2(가운데), 2 = 점3)
   },
 
@@ -110,6 +114,7 @@ window.GAME_CONFIG = {
   //   한 동작에 키를 여러 개 넣을 수 있음. 빈 칸 [] = 아직 키 없음. 키 이름 목록: ArrowUp/Down/Left/Right, KeyA~KeyZ,
   //   Digit0~9, Numpad0~9, Space, Enter, Tab, F1~F12, PageUp, PageDown, Slash(?/ 키) …
   //   Ctrl·Alt 를 같이 누르면 게임이 안 받음 (Ctrl+R 새로고침 같은 브라우저 기능은 그대로)
+  //   이동(up·down·left·right)과 둘러보기(camUp…camRight) 키를 바꾸려면 두 묶음의 키 이름만 서로 바꾸면 됨 (다른 코드는 그대로)
   keys: {
     up:        ['KeyW'],          // 잠수함 이동 위   (두 방향을 같이 누르면 대각선)
     down:      ['KeyS'],          // 잠수함 이동 아래
@@ -125,7 +130,8 @@ window.GAME_CONFIG = {
     item3:     ['Digit3', 'Numpad3'],   // 아이템 3번 칸
     item4:     ['Digit4', 'Numpad4'],   // 아이템 4번 칸
     // 궤도 점 올리기·내리기 (형님 자판 사진대로: Insert·Home·PageUp 줄 = ▲, Delete·End·PageDown 줄 = ▼, 세로 한 줄 = 점 하나)
-    //   누르면 그 점이 골라지고 한 칸 움직임, 꾹 누르면 ▲▼ 버튼처럼 계속. 점1 = 잠수함에 가장 가까운 점
+    //   누르면 그 점이 골라지고 한 칸 움직임, 꾹 누르면 계속(빠르기 = 위 pad.keyRepeatDelay·keyRepeatEvery). 점1 = 잠수함에 가장 가까운 점
+    //   점마다 따로라서 다른 점 키를 같이 누르면 동시에 움직임. 같은 점 ▲·▼ 를 같이 누르면 나중에 누른 쪽
     //   ▲ = 늘 판 위쪽 (잠수함이 왼쪽을 봐도 같음)
     pin1Up:    ['Insert'],        // 점1 ▲
     pin1Down:  ['Delete'],        // 점1 ▼

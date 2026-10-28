@@ -209,6 +209,7 @@
     setBusy(false);
     G.setFireGauge(0);                        // 발사가 끝나면 거리 게이지 비우기 (형님 지시). DELAY 숫자는 턴 넘기기 때 지움
     G.cam.follow = true;
+    G.cam.manual = false;                     // 내 잠수함으로 돌아왔으니 「직접 둘러봄」도 끝 → 다시 WASD 로 움직이면 따라감
   }
 
   var last = 0;

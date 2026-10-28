@@ -8,7 +8,8 @@
      1·2·3·4  → main.js (Game.selectItem) → 아이템 칸 고르기 (칸을 누른 것과 같음)
      F1       → pad.js (Game.padKeys.reset) → ↺ 점 처음 모양
      Tab      → move.js (Game.endTurn) → 턴 넘기기 쪽지
-     Insert·Home·PageUp / Delete·End·PageDown → pad.js (Game.padKeys) → 점1·2·3 고르기 + ▲ / ▼ (꾹 누르면 계속, ▲▼ 버튼과 같은 코드)
+     Insert·Home·PageUp / Delete·End·PageDown → pad.js (Game.padKeys) → 점1·2·3 ▲ / ▼ (▲▼ 버튼과 같은 한 칸 계산, 꾹 누르면 계속.
+              점마다 따로라서 여러 점을 동시에 움직일 수 있음. 빠르기는 config.js pad.keyRepeatDelay·keyRepeatEvery)
      ?        → 키 안내 열기/닫기 (PC 화면에서만 보이는 오른쪽 아래 「?」 버튼과 같음)
    잠김(어뢰 날아가는 중 등)은 각 파일이 원래대로 막음. 키를 꾹 누를 때 자동으로 반복되는 신호는 무시
    move.js, pad.js, fire.js 다음에 불러야 함
@@ -36,18 +37,28 @@
   }
   // 점 키: 동작 이름 → [몇 번째 점, 위(-1)/아래(+1)]
   var PINS = { pin1Up: [0, -1], pin1Down: [0, 1], pin2Up: [1, -1], pin2Down: [1, 1], pin3Up: [2, -1], pin3Down: [2, 1] };
-  var nudgeOwner = null;   // 지금 꾹 누르고 있는 점 키 (다른 점 키를 누르면 그쪽으로 넘어감)
+  //   점마다 꾹 누르기가 따로라서(pad.js pinStart) 다른 점 키는 같이 눌러도 동시에 움직이고, 하나를 떼도 나머지는 계속
+  //   같은 점의 ▲·▼ 를 같이 누르면: 「나중에 누른 쪽」만 움직임. 그 키를 떼면 아직 누르고 있는 반대쪽으로 이어감
+  var pinDir = [0, 0, 0];   // [점] = 지금 움직이는 방향 (-1 ▲ / +1 ▼ / 0 멈춤)
+  function pinAct(i, dir) {   // 점 i 의 ▲(-1) 또는 ▼(+1) 동작 이름
+    return 'pin' + (i + 1) + (dir < 0 ? 'Up' : 'Down');
+  }
   function pinPress(act) {
     var pin = PINS[act];
-    G.padKeys.up.stop('key'); G.padKeys.down.stop('key');   // 앞에 누르던 점 키는 멈춤
-    G.padKeys.select(pin[0]);                                // 그 점을 고르고
-    (pin[1] < 0 ? G.padKeys.up : G.padKeys.down).start('key');   // ▲ 또는 ▼ 버튼을 꾹 누른 것과 똑같이
-    nudgeOwner = act;
+    G.padKeys.select(pin[0]);                                // 그 점을 고름 (노란 빛 = 마지막에 누른 점 키)
+    G.padKeys.pinStart(pin[0], pin[1]);                      // 누르는 순간 한 칸 + 꾹 누르면 계속
+    pinDir[pin[0]] = pin[1];
   }
   function pinRelease(act) {
-    if (nudgeOwner !== act) return;                          // 이미 다른 점 키로 넘어갔으면 그대로 둠
-    G.padKeys.up.stop('key'); G.padKeys.down.stop('key');
-    nudgeOwner = null;
+    var pin = PINS[act];
+    if (pinDir[pin[0]] !== pin[1]) return;                   // 이 점은 이미 반대쪽 키로 움직이는 중 → 그대로 둠
+    if (stillHeld(pinAct(pin[0], -pin[1]))) {                // 반대쪽 키를 아직 누르고 있으면 그쪽으로 이어감 (한 칸 없이)
+      G.padKeys.pinStart(pin[0], -pin[1], false);
+      pinDir[pin[0]] = -pin[1];
+    } else {
+      G.padKeys.pinStop(pin[0]);
+      pinDir[pin[0]] = 0;
+    }
   }
   var DIRS = { up: 1, down: 1, left: 1, right: 1, camUp: 1, camDown: 1, camLeft: 1, camRight: 1 };
   // 같은 동작의 다른 키를 아직 누르고 있는지 (예: ↑ 와 W 를 같이 눌렀다가 하나만 뗀 경우)
@@ -116,7 +127,8 @@
     G.fireHold.cancel('key');
     G.padKeys.up.stop('key');
     G.padKeys.down.stop('key');
-    nudgeOwner = null;
+    G.padKeys.pinStopAll();
+    pinDir = [0, 0, 0];
   }
   window.addEventListener('blur', releaseAll);
   document.addEventListener('visibilitychange', function () { if (document.hidden) releaseAll(); });

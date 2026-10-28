@@ -7,6 +7,7 @@
    5) (12차) 키보드 WASD 도 여기로: keys.js 가 「지금 누른 방향」만 알려 주면(Game.setMoveKeys)
       조이스틱과 똑같은 걸음 계산을 거쳐 똑같은 이동 쪽지가 나감 (계산은 한 곳에만 있음)
    6) (12차) 키보드 화살표 = 화면(바다) 둘러보기: 손가락으로 바다를 미는 것과 같음 (잠수함 따라가기 멈춤, Game.setPanKeys)
+      둘러본 뒤에는 WASD 로 움직여도 카메라가 안 돌아옴 (cam.manual). 조이스틱을 잡거나 어뢰가 끝나면 다시 따라감
    이 파일은 잠수함 자리·게이지를 직접 바꾸지 않음 (쪽지만 냄)
    main.js 다음에 불러야 함 (window.Game 을 씀)
    ========================================================= */
@@ -44,7 +45,8 @@
     stick.maxR = r.width / 2 * C.joystick.knobTravel;
     joyEl.setPointerCapture(e.pointerId);                     // 손가락이 동그라미 밖으로 나가도 계속 받음
     joyEl.classList.add('held');
-    G.cam.follow = true;                                      // 조이스틱을 잡으면 카메라가 다시 따라감
+    G.cam.follow = true;                                      // 조이스틱을 잡으면 카메라가 다시 따라감 (폰은 예전 그대로)
+    G.cam.manual = false;
     stickMove(e);
   });
   joyEl.addEventListener('pointermove', function (e) {
@@ -74,14 +76,16 @@
   var keyDir = { x: 0, y: 0 };
   function setMoveKeys(x, y) {
     keyDir.x = x; keyDir.y = y;
-    if (x || y) G.cam.follow = true;                          // 키로 움직이기 시작하면 카메라가 다시 따라감 (조이스틱 잡을 때와 같음)
+    // 키로 움직이기 시작하면 카메라가 따라감 — 단, 화살표·바다 끌기로 직접 둘러본 뒤(cam.manual)면 안 끌고 옴 (형님 지시, PC 만)
+    //   어뢰가 날아가는 중(busy)에도 안 건드림 (그동안 카메라는 어뢰 담당)
+    if ((x || y) && !G.cam.manual && !G.state.busy) G.cam.follow = true;
   }
 
   // 화살표 키로 둘러보는 방향 (-1 / 0 / 1). keys.js 가 Game.setPanKeys 로 넣어 줌
   var panDir = { x: 0, y: 0 };
   function setPanKeys(x, y) {
     panDir.x = x; panDir.y = y;
-    if (x || y) G.cam.follow = false;                         // 바다를 손으로 밀 때처럼 잠수함 따라가기를 멈춤 (WASD·조이스틱을 잡으면 다시 따라감)
+    if (x || y) { G.cam.follow = false; G.cam.manual = true; }   // 바다를 손으로 밀 때처럼 잠수함 따라가기를 멈춤 (WASD 로는 안 돌아옴, 조이스틱·어뢰 끝나면 돌아옴)
   }
 
   // 지금 움직이고 싶은 방향·세기 하나로 모으기 (조이스틱이든 키보드든 여기서 같은 모양이 됨)

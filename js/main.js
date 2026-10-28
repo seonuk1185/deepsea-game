@@ -108,7 +108,9 @@
         cam.x, cam.y = 화면 왼쪽 위 모서리가 보는 세계 좌표
      ========================================================= */
   // follow = 카메라가 움직이는 잠수함을 따라갈지 (바다를 손으로 밀면 꺼지고, 조이스틱을 잡으면 다시 켜짐)
-  var cam = { x: 0, y: 0, zoom: 1, viewW: 0, viewH: 0, follow: false, panning: false };
+  // manual = 직접 둘러봤음 (바다 끌기·화살표 키). 켜져 있으면 키보드(WASD)로 움직여도 카메라를 잠수함으로 안 끌고 옴
+  //          조이스틱을 잡거나 어뢰가 끝나 카메라가 내 잠수함으로 돌아올 때 꺼짐 (move.js, torpedo.js)
+  var cam = { x: 0, y: 0, zoom: 1, viewW: 0, viewH: 0, follow: false, panning: false, manual: false };
 
   function measureCamera() {
     cam.viewW = seaView.clientWidth;
@@ -157,6 +159,7 @@
       seaView.setPointerCapture(e.pointerId);
       seaView.classList.add('dragging');
       cam.follow = false;     // 직접 둘러보는 중엔 카메라가 잠수함을 쫓지 않음
+      cam.manual = true;      // 직접 둘러봤음 → WASD 로 움직여도 안 끌고 옴 (조이스틱은 다시 따라감)
       cam.panning = true;
     });
     seaView.addEventListener('pointermove', function (e) {
