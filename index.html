@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- viewport-fit=cover: 노치(카메라 구멍) 밑까지 화면을 씀. 확대/축소 막음 -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#071A2B">
+<meta name="theme-color" content="#03080d">
 <meta name="color-scheme" content="only light">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,7 +14,7 @@
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Do+Hyeon&family=DotGothic16&family=Noto+Sans+KR:wght@500;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Gothic+A1:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -32,7 +32,7 @@
 
   <!-- ===== 바다 위에 떠 있는 것들 (세계와 같이 움직이지 않음) ===== -->
   <div class="hud">
-    <button class="menu press" id="btnPause" aria-label="일시정지"><span>Ⅱ</span></button>
+    <button class="menu press" id="btnPause" aria-label="일시정지"><span><svg viewBox="0 0 14 14" aria-hidden="true"><rect x="2" y="1" width="3.5" height="12" fill="#d8f6ff"/><rect x="8.5" y="1" width="3.5" height="12" fill="#d8f6ff"/></svg></span></button>
     <!-- (14차) 미니맵: 오른쪽 위 Ⅱ 단추 아래. 누르면 그 자리로 화면이 감 (minimap.js) -->
     <div class="minimap" id="minimap" aria-label="미니맵"><div class="mm-map"></div></div>
     <!-- (14차) 상대 차례일 때만 보이는 작은 표시 (turn.js). 화면 위 가운데는 채팅 자리라 오른쪽 아래에 -->
@@ -42,7 +42,14 @@
     <div class="items" id="items"></div>
     <div class="mapname" id="mapName">심해 유적</div>
     <!-- 이동 조이스틱: 손잡이를 끄는 방향으로 내 잠수함이 움직임 (move.js) -->
-    <div class="joy" id="joy" aria-label="이동 조이스틱"><i></i></div>
+    <!-- (D2) 조준경 링: 바깥 눈금 4개 + 점선 안쪽 링 + 방향 삼각형 4개. 손잡이(i)는 move.js 가 끔 -->
+    <div class="joy" id="joy" aria-label="이동 조이스틱">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><g stroke="rgba(62,232,255,.55)" stroke-width="1.2">
+        <path d="M50 3v9M50 88v9M3 50h9M88 50h9"/>
+        <circle cx="50" cy="50" r="33" fill="none" stroke-dasharray="2 4" stroke="rgba(62,232,255,.35)"/></g>
+        <g fill="rgba(62,232,255,.75)"><path d="M50 15l-4 6h8zM50 85l-4-6h8zM15 50l6-4v8zM85 50l-6-4v8z"/></g></svg>
+      <i></i>
+    </div>
     <!-- PC(마우스 있는 컴퓨터)에서만 보이는 키보드 안내: 오른쪽 아래 작은 「?」 → 누르면(또는 ? 키) 키 목록. 내용은 keys.js 가 채움 -->
     <button class="keyhelp-btn" id="btnKeyHelp" aria-label="키보드 안내" title="키보드 안내 (?)">?</button>
     <div class="keyhelp" id="keyHelp" hidden></div>
@@ -60,13 +67,24 @@
   <!-- (13차) PC 키 설정 화면: 키 안내(?) 맨 아래 「키 설정」 단추로 열림. 내용은 keys.js 가 채움 -->
   <div class="keyset" id="keySet" hidden></div>
 
-  <!-- ===== 아래 금속 계기판 ===== -->
+  <!-- ===== 아래 유리 계기판 (D2) ===== -->
   <div class="dash" id="dash">
+    <!-- 유리판 한 장 (양옆 낮은 칸 + 가운데 솟은 칸, 사선 어깨). 모양·청록 외곽선은 main.js buildFrame 이 계산 -->
+    <div class="frame" id="dashFrame" aria-hidden="true"><div class="bgl"></div><svg id="frameLine"></svg></div>
 
-    <!-- A. 시간 + DELAY -->
+    <!-- A. 시간 (링 시계: 청록 호 = 남은 시간, main.js setClock) + DELAY -->
     <div class="mod timer">
-      <div class="lcd big"><s>88</s><span id="timerNum">20</span></div>
-      <div class="lcd small"><em>DELAY</em><span id="delayNum">0000</span></div>
+      <div class="clock">
+        <svg viewBox="0 0 60 60" fill="none" aria-hidden="true">
+          <defs><linearGradient id="clockGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1aa8ff"/><stop offset="1" stop-color="#7ff6ff"/></linearGradient></defs>
+          <circle cx="30" cy="30" r="25" stroke="rgba(62,232,255,.15)" stroke-width="3"/>
+          <circle class="arc" id="clockArc" cx="30" cy="30" r="25" stroke="url(#clockGrad)" stroke-width="3" stroke-linecap="round" style="stroke-dasharray:157.08 157.08" transform="rotate(-90 30 30)"/>
+          <circle cx="30" cy="30" r="29" stroke="rgba(62,232,255,.35)" stroke-width=".6" stroke-dasharray="1 2.04"/>
+          <circle class="dot" id="clockDot" cx="30" cy="5" r="1.8" fill="#fff" style="transform:rotate(360deg)"/>
+        </svg>
+        <b id="timerNum">20</b>
+      </div>
+      <div class="delay"><svg viewBox="0 0 10 12" aria-hidden="true"><path d="M1 1h8M1 11h8M2 1c0 3 6 3 6 5s-6 2-6 5M8 1c0 3-6 3-6 5s6 2 6 5" fill="none" stroke="#7fa9bb" stroke-width="1.2"/></svg><em>DLY</em><span id="delayNum">0000</span></div>
     </div>
 
     <!-- C. 궤도 판 (초록 점 화면) + 판 안 맨 아래에 겹친 거리 눈금 — 내용은 main.js가 그림, 점 끌기는 pad.js
@@ -78,40 +96,44 @@
         <div class="scale" id="padScale"></div>
       </div>
       <div class="nudge" aria-label="점 미세조정">
-        <button class="nbtn press" id="btnNudgeUp" aria-label="고른 점 위로 한 칸">▲</button>
+        <button class="nbtn press" id="btnNudgeUp" aria-label="고른 점 위로 한 칸"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2l5 7H1z" fill="#ffcf4a"/></svg></button>
         <span class="ntag" id="nudgeTag">핀2</span>
-        <button class="nbtn press" id="btnNudgeDown" aria-label="고른 점 아래로 한 칸">▼</button>
+        <button class="nbtn dn press" id="btnNudgeDown" aria-label="고른 점 아래로 한 칸"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 10L1 3h10z" fill="#ffcf4a"/></svg></button>
       </div>
     </div>
 
     <!-- C-2. 조류(위) + 궤도 다시(아래) -->
     <div class="mod flowm">
-      <!-- 조류: 화살표(위·아래·왼쪽·오른쪽) + 세기 단계 숫자(0~5) + 5칸 막대 — main.js setCurrent 가 채움 -->
+      <!-- 조류: 링 다이얼 (링 위 화살표 = 방향 위·아래·왼쪽·오른쪽, 가운데 = 세기 단계 0~5) + 아래 5칸 막대 — main.js setCurrent 가 채움
+           #flowArrow = 다이얼 전체를 덮는 겹. 오른쪽(0°)을 가리키게 그려 두고 통째로 돌림 -->
       <div class="flowbox" id="flowBox" aria-label="조류">
-        <div class="flowtop">
-          <svg viewBox="0 0 24 24" id="flowArrow"><path d="M4 12h15M13 6l6 6-6 6" fill="none" stroke="#9FE3FF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <b id="flowLevel">0</b>
-        </div>
-        <div class="flowsegs" id="flowSegs"><i></i><i></i><i></i><i></i><i></i></div>
+        <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+          <circle cx="20" cy="20" r="17" stroke="rgba(62,232,255,.3)"/>
+          <g stroke="rgba(62,232,255,.45)"><path d="M20 1v3M20 36v3M1 20h3M36 20h3"/></g>
+        </svg>
+        <svg viewBox="0 0 40 40" fill="none" id="flowArrow" aria-hidden="true">
+          <circle cx="20" cy="20" r="17" stroke="#3ee8ff" stroke-width="1.6" stroke-dasharray="6 100.8" transform="rotate(-23 20 20)"/>
+          <path d="M33 20l-5-3.5v7z" fill="#3ee8ff"/>
+        </svg>
+        <b id="flowLevel">0</b>
       </div>
-      <button class="rbtn press" id="btnPadReset" aria-label="궤도 다시">↺</button>
+      <div class="flowsegs" id="flowSegs"><i></i><i></i><i></i><i></i><i></i></div>
+      <button class="rbtn press" id="btnPadReset" aria-label="궤도 다시"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 1 0 2.2-5.1" fill="none" stroke="#d8f6ff" stroke-width="2"/><path d="M3 3.5v5.5h5.5" fill="none" stroke="#d8f6ff" stroke-width="2"/></svg></button>
     </div>
 
-    <!-- D. 이동 + 에너지 세로 게이지 (서 있는 통 2개, 아래에서 위로 참). 위 = 화살표·숫자, 아래 = 이름 -->
+    <!-- D. 이동 + 에너지 세로 게이지 (마디 막대 2개, 아래에서 위로 참). 위 = 이동 화살표 아이콘 / 에너지 숫자 (D2: 아래 이름 글씨는 뺌) -->
     <div class="mod gauges">
-      <div class="g move">
-        <span class="gtop"><svg class="arrow" viewBox="0 0 20 16"><path d="M3 8h14M6 4L2 8l4 4M14 4l4 4-4 4" fill="none" stroke="#04121D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <div class="g move" aria-label="이동 게이지">
+        <span class="gtop"><svg class="arrow" viewBox="0 0 20 14" aria-hidden="true"><path d="M2 7h16M6 3L2 7l4 4M14 3l4 4-4 4" fill="none" stroke="#3ee8ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         <div class="tube"><i id="moveBar"></i></div>
-        <span class="lbl">이동</span>
       </div>
-      <div class="g energy">
+      <div class="g energy" aria-label="에너지">
         <b class="gtop" id="energyNum">100</b>
         <div class="tube"><i id="energyBar"></i></div>
-        <span class="lbl">에너지</span>
       </div>
     </div>
 
-    <!-- E. 내 잠수함 얼굴 창 -->
+    <!-- E. 내 잠수함 홀로그램 창 (그림은 main.js) -->
     <div class="mod face">
       <div class="win" id="faceWin"></div>
       <span class="lbl" id="faceName">돌고래호</span>
@@ -119,15 +141,20 @@
 
     <!-- F. 발사 / 턴 넘기기 -->
     <div class="act">
-      <button class="btn fire press" id="btnFire">발사!</button>
-      <button class="btn skip press" id="btnSkip">턴 넘기기<span class="ff"> ▶▶</span></button>
+      <!-- 발사: 경고 줄무늬 스위치 + 빨간 어뢰 (바깥 빨간 빛은 .firewrap). 꾹 누르기는 fire.js -->
+      <div class="firewrap"><button class="btn fire press" id="btnFire" aria-label="발사 (꾹 눌렀다 떼기)"><svg viewBox="0 0 60 20" aria-hidden="true">
+        <defs><linearGradient id="fireGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd0c4"/><stop offset=".5" stop-color="#ff5a45"/><stop offset="1" stop-color="#a51d10"/></linearGradient></defs>
+        <path d="M8 6h36c8 0 13 2 15 4-2 2-7 4-15 4H8z" fill="url(#fireGrad)"/><path d="M8 6L2 1v6zM8 14l-6 5v-6z" fill="#ff5a45"/>
+        <path d="M2 10h6" stroke="#ff5a45" stroke-width="2"/><path d="M38 6v8" stroke="#5a0d06" stroke-width="1.2"/></svg></button></div>
+      <!-- 턴 넘기기: 쇠 버튼 + ⏭ -->
+      <button class="btn skip press" id="btnSkip" aria-label="턴 넘기기" title="턴 넘기기"><svg viewBox="0 0 22 13" aria-hidden="true"><path d="M1 1l8 5.5L1 12zM10 1l8 5.5-8 5.5z" fill="#3ee8ff"/><rect x="18.5" y="1" width="2.5" height="11" fill="#3ee8ff"/></svg></button>
     </div>
   </div>
 </div>
 
 <!-- 폰을 세로로 들었을 때 -->
 <div class="rotate">
-  <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#3FB8FF" stroke-width="4" stroke-linecap="round"><rect x="18" y="6" width="28" height="48" rx="5"/><path d="M8 40a24 24 0 0 0 40 14M48 54l0-8M48 54l-8 0"/></svg>
+  <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#3ee8ff" stroke-width="4" stroke-linecap="round"><rect x="18" y="6" width="28" height="48" rx="5"/><path d="M8 40a24 24 0 0 0 40 14M48 54l0-8M48 54l-8 0"/></svg>
   <div>폰을 옆으로 돌려 주세요</div>
   <small>이 게임은 가로 화면에서만 할 수 있어요.</small>
 </div>

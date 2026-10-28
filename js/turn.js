@@ -64,6 +64,7 @@
     var t = rs.turn, now = G.matchNow();
     var sec = Math.max(0, Math.ceil((t.deadline - now) / 1000));   // 쏜 뒤에도·어뢰가 날아가는 중에도 계속 줄어듦 (2026-10-28)
     if (sec !== shownSec) { shownSec = sec; timerNum.textContent = sec; }
+    G.setClock((t.deadline - now) / t.limit);                     // (D2) 링 시계 호 = 남은 시간 비율 (0.1초마다 부드럽게 줄어듦)
 
     if (rs.over || waitingOver) return;                           // 판을 끝낸 어뢰를 보여 주는 중 → 재생이 끝나면 afterShot 이 판 끝 화면
     if (G.state.busy) return;                                     // 어뢰가 날아가는 중엔 쪽지 안 냄 (시간이 끝나도 재생이 끝난 뒤에 넘김)
@@ -134,7 +135,8 @@
     overBox.hidden = false;
     overShown = true;
     timerNum.textContent = '--';
-    G.markActive(null);                                           // 차례 화살표도 끔
+    G.setClock(0);                                                // 링 시계도 비움
+    G.markActive(null);                                          // 차례 화살표도 끔
     updateLock();
   }
   $('btnAgain').addEventListener('click', function () {

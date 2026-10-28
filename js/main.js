@@ -62,27 +62,51 @@
 
   var seaView = $('seaView'), world = $('world'), worldBg = $('worldBg'), worldThings = $('worldThings');
 
-  /* ---------- 잠수함 임시 그림 (색만 다름) ---------- */
-  var SUB_COLORS = {
-    yellow: { tower: '#E0A800', hull: '#FFC21A', line: '#7A5500', glass: '#BDEBFF' },
-    red:    { tower: '#C23B44', hull: '#E5545D', line: '#5E1016', glass: '#FFD9DB' }
+  /* ---------- 잠수함 임시 그림 (D2: 강철 잠수함 — 3D 모델이 오기 전까지) ----------
+     시안 D2 와 같은 몸통 그림. 오른쪽을 보는 모양 (왼쪽을 보면 style.css 가 좌우 뒤집음)
+     편 구분 = 앞코 작은 불빛 + 몸통 쇠색: 우리 편 = 청록 불 + 푸른 쇠, 상대 = 빨간 불 + 붉은 쇠
+     그림 칸 크기는 예전 그대로 76×44 (판정 크기 config.js movement.subHalfW·H 와 같음) — 그림만 바뀜
+     viewBox 세로 가운데(24) = 몸통 가운데 → 잠수함 자리(x, y)가 몸통 한가운데 */
+  var SUB_TONES = {
+    ours:   { hi: '#9fb2bc', mid: '#3b4b55', lo: '#0a0f12', light: '#8ff4ff' },
+    theirs: { hi: '#a48f8c', mid: '#4b3836', lo: '#110b0a', light: '#ff8696' }
   };
-  function subSvg(color, withTail) {
-    var k = SUB_COLORS[color] || SUB_COLORS.yellow;
-    return '<svg viewBox="0 0 76 44" aria-hidden="true">' +
-      '<rect x="30" y="2" width="16" height="14" rx="4" fill="' + k.tower + '"/>' +
-      '<ellipse cx="38" cy="26" rx="30" ry="14" fill="' + k.hull + '" stroke="' + k.line + '" stroke-width="2"/>' +
-      '<circle cx="50" cy="25" r="6" fill="' + k.glass + '" stroke="' + k.line + '" stroke-width="2"/>' +
-      (withTail ? '<path d="M8 26 L0 18 L0 34 Z" fill="' + k.tower + '"/>' : '') +
-      '</svg>';
+  function subSvg(id, tone) {
+    var k = SUB_TONES[tone] || SUB_TONES.ours, g = 'subGrad-' + id;
+    return '<svg viewBox="0 -1 120 50" aria-hidden="true" style="color:' + k.light + '">' +
+      '<defs><linearGradient id="' + g + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + k.hi + '"/>' +
+        '<stop offset=".45" stop-color="' + k.mid + '"/><stop offset="1" stop-color="' + k.lo + '"/></linearGradient></defs>' +
+      '<g fill="url(#' + g + ')">' +
+        '<path d="M8 24C8 16 20 13 40 13h52c16 0 24 5 24 11s-8 11-24 11H40C20 35 8 32 8 24z"/>' +   // 몸통
+        '<path d="M52 13l4-10h18l4 10z"/>' +                                                         // 탑
+        '<path d="M66 3V-3h5" fill="none" stroke="#2b3438" stroke-width="1.5"/>' +                   // 잠망경
+        '<path d="M12 24L2 16l3 8-3 8z" fill="#1a2024"/>' +                                          // 꼬리 날개
+        '<path d="M40 13v22M92 13v22M20 24h88" stroke="rgba(0,0,0,.35)" stroke-width=".8"/>' +       // 이음매
+        '<path d="M22 16c20-2 60-2 84 1" stroke="rgba(255,255,255,.25)" stroke-width="1" fill="none"/>' +   // 위 반짝임
+        '<circle cx="108" cy="22" r="2" fill="currentColor"/><circle cx="108" cy="22" r="5" fill="currentColor" opacity=".25"/>' +   // 앞코 불빛
+      '</g></svg>';
+  }
+  // 계기판 홀로그램 창의 내 잠수함 (청록 선 그림)
+  function holoSvg() {
+    return '<svg viewBox="0 0 120 44" aria-hidden="true"><g fill="rgba(62,232,255,.12)" stroke="#7ff0ff" stroke-width="1.6">' +
+      '<path d="M10 24C10 16 22 14 40 14h52c14 0 22 4 22 10s-8 10-22 10H40C22 34 10 32 10 24z"/>' +
+      '<path d="M52 14l4-10h18l4 10" fill="none"/><path d="M14 24l-10-8v16z"/></g>' +
+      '<g stroke="rgba(127,240,255,.5)" stroke-width=".8"><path d="M40 14v20M66 14v20M92 14v20M12 24h100"/></g></svg>' +
+      '<span class="base"></span>';
+  }
+  // 이 잠수함이 우리 편인가 (내 잠수함과 같은 팀) → 그림 색
+  function toneOf(s) {
+    var me = getSub(mySubId);
+    return me && s.team === me.team ? 'ours' : 'theirs';
   }
 
-  /* ---------- 아이템 아이콘 ---------- */
+  /* ---------- 아이템 아이콘 (색 = currentColor: 보통 청록, 골라진 칸은 앰버 — style.css .slot / .slot.sel) ---------- */
   var ITEM_ICONS = {
-    double: '<svg viewBox="0 0 26 26"><g fill="#1A0A00"><rect x="3" y="6" width="16" height="5" rx="2.5"/><path d="M19 6l5 2.5-5 2.5z"/><rect x="3" y="15" width="16" height="5" rx="2.5"/><path d="M19 15l5 2.5-5 2.5z"/></g></svg>',
-    shield: '<svg viewBox="0 0 26 26"><path d="M13 3l8 3v6c0 5-3.5 8.5-8 10.5C8.5 20.5 5 17 5 12V6z" fill="#1A0A00"/></svg>',
-    move:   '<svg viewBox="0 0 26 26"><g fill="none" stroke="#1A0A00" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13h18M8 9l-4 4 4 4M18 9l4 4-4 4"/></g></svg>'
+    double: '<svg viewBox="0 0 26 26" aria-hidden="true"><g fill="currentColor"><rect x="3" y="6" width="15" height="5" rx="2.5"/><path d="M18 6l5 2.5-5 2.5z"/><rect x="3" y="15" width="15" height="5" rx="2.5"/><path d="M18 15l5 2.5-5 2.5z"/></g></svg>',
+    shield: '<svg viewBox="0 0 26 26" aria-hidden="true"><path d="M13 3l8 3v6c0 5-3.5 8.5-8 10.5C8.5 20.5 5 17 5 12V6z" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>',
+    move:   '<svg viewBox="0 0 26 26" aria-hidden="true"><path d="M4 13h18M8 9l-4 4 4 4M18 9l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"/></svg>'
   };
+  var ITEM_EMPTY = '<svg viewBox="0 0 26 26" aria-hidden="true"><path d="M8 13h10M13 8v10" stroke="currentColor" stroke-width="2"/></svg>';   // 빈 칸 = 희미한 +
   var ITEM_NAMES = { double: '2연발', shield: '방어막', move: '무브' };
 
   /* =========================================================
@@ -105,7 +129,7 @@
     // 보급상자
     html = '';
     C.crates.forEach(function (c) {
-      html += '<div class="crate" style="left:' + c.x + 'px;top:' + c.y + 'px">?</div>';
+      html += '<div class="crate" style="left:' + c.x + 'px;top:' + c.y + 'px"><b>?</b></div>';
     });
 
     // 잠수함 + 머리 위 이름·체력바 (+ 차례 화살표: 잠수함마다 하나씩 있고, 지금 차례인 잠수함(.active)만 보임 — 14차)
@@ -118,7 +142,7 @@
           '<div class="name">' + s.name + '</div>' +
           '<div class="minihp"><i style="width:' + s.hp + '%"></i></div>' +
         '</div>' +
-        '<div class="body">' + subSvg(s.color, true) + '</div>' +
+        '<div class="body">' + subSvg(s.id, toneOf(s)) + '</div>' +
       '</div>';
     });
     worldThings.innerHTML = html;
@@ -209,7 +233,7 @@
 
     // 아이템 4칸 (계기판 시간·DELAY 칸 바로 위 가로 한 줄)
     $('items').innerHTML = C.items.map(function (it, i) {
-      if (!it.type) return '<button class="slot" data-i="' + i + '" aria-label="빈 칸"></button>';
+      if (!it.type) return '<button class="slot" data-i="' + i + '" aria-label="빈 칸">' + ITEM_EMPTY + '</button>';
       return '<button class="slot full' + (it.selected ? ' sel' : '') + '" data-i="' + i + '" aria-label="' + ITEM_NAMES[it.type] + '">' +
         ITEM_ICONS[it.type] + '<i>' + it.count + '</i></button>';
     }).join('');
@@ -228,7 +252,7 @@
     setMoveGauge(me ? me.move : C.movement.gaugeStart);
     setEnergyGauge(me ? me.hp : C.energy);
 
-    $('faceWin').innerHTML = subSvg(me ? me.color : 'yellow', false);
+    $('faceWin').innerHTML = holoSvg();
     $('faceName').textContent = C.character.name;
 
     buildPad(me ? me.facing : 'right');
@@ -270,9 +294,10 @@
     h += box(bx0, bx1, lim.top, lim.bottom, 'limbox' + (bx0 <= 0 ? ' edge-l' : '') + (bx1 >= 100 ? ' edge-r' : ''));
     // (「○○ 한계」 글씨는 형님 지시로 뺌 2026-10-27)
 
-    // 곡선 (파란 선. pad.js 가 점을 끌 때마다 drawPadCurve 로 다시 그림. 판 밖으로 나간 부분은 잘림)
-    h += '<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path id="padCurve" d="" ' +
-      'fill="none" stroke="#4FB6FF" stroke-width="2.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>';
+    // 곡선 (청록 빛 선 = 넓고 흐린 빛 + 가는 밝은 선 두 겹. pad.js 가 점을 끌 때마다 drawPadCurve 로 다시 그림. 판 밖으로 나간 부분은 잘림)
+    h += '<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">' +
+      '<path id="padCurveGlow" d="" fill="none" stroke="rgba(62,232,255,.25)" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>' +
+      '<path id="padCurve" d="" fill="none" stroke="#7ff0ff" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>';
 
     // 거리 게이지 (가운데 주황 막대): 잠수함 쪽 끝에 붙어서 시작, 상자 오른쪽 변(최대 거리)까지만
     var gEnd = 100 - u2p(lim.right);
@@ -312,8 +337,9 @@
       d += (x ? ' L' : 'M') + padFx(x).toFixed(2) + ' ' + y.toFixed(2);
       if (x >= xEnd) break;
     }
-    var path = $('padCurve');
+    var path = $('padCurve'), glow = $('padCurveGlow');
     if (path) path.setAttribute('d', d);
+    if (glow) glow.setAttribute('d', d);
     Array.prototype.forEach.call($('padScreen').querySelectorAll('.cp'), function (el) {
       var p = pts[+el.getAttribute('data-i')];
       el.style.left = padFx(p[0]) + '%';
@@ -361,15 +387,15 @@
   }
 
   /* ---------- 움직일 때 쓰는 화면 바꾸기 (move.js 가 부름) ---------- */
-  // 이동 게이지 (0~1): 세로 통 아래에서 위로 참 (통 안쪽 여백 3px씩 빼고). 20% 이하면 노란색
+  // 이동 게이지 (0~1): 세로 마디 막대 아래에서 위로 참 (통 안쪽 여백 2px씩 빼고). 20% 이하면 빨갛게 깜빡 (경고)
   function setMoveGauge(v) {
     var mv = $('moveBar');
-    mv.style.height = 'calc((100% - 6px) * ' + v.toFixed(4) + ')';
+    mv.style.height = 'calc((100% - 4px) * ' + v.toFixed(4) + ')';
     mv.classList.toggle('low', v <= 0.2);
   }
-  // 에너지 게이지 (0~100): 세로 통 높이 + 위 숫자
+  // 에너지 게이지 (0~100): 세로 마디 막대 높이 + 위 숫자
   function setEnergyGauge(hp) {
-    $('energyBar').style.height = 'calc((100% - 6px) * ' + (hp / 100).toFixed(4) + ')';
+    $('energyBar').style.height = 'calc((100% - 4px) * ' + (hp / 100).toFixed(4) + ')';
     $('energyNum').textContent = hp;
   }
   // 잠수함 그림을 지금 좌표(심판 상태)로 옮김 (이름·체력바·화살표는 잠수함에 붙어 있어 같이 움직임)
@@ -459,15 +485,45 @@
     });
   }
 
-  /* ---------- 턴 시작 연출: 계기판 테두리 번쩍 ----------
-     (12차) 계기판은 가운데(궤도 판 칸)만 위로 솟은 모양이라, 예전처럼 네모 테두리를 번쩍이면
-     솟은 칸 위로 옛날 평평한 줄이 지나가고 솟은 칸 옆·위는 안 번쩍였음 → 실제 모양대로 선을 그려서 번쩍이게 함
-       노란 선 = 양옆 낮은 칸 윗변 → 솟은 칸 왼쪽 옆 → 둥근 윗변 → 오른쪽 옆 → 낮은 칸 윗변
-       안쪽 노란 빛 = 같은 모양 안쪽으로만 번짐 (바깥 바다 쪽으로는 안 번짐)
-     솟은 칸 금속판(.pad::before) 자리는 style.css 와 같은 숫자로 계산: 판 칸 양옆 6px 바깥, 맨 위 = 계기판 위 - 솟은 높이, 위 모서리 둥글기 14px */
+  /* ---------- 유리 계기판 모양 (D2) ----------
+     계기판 = 유리판 한 장: 양옆은 낮고(--dash-h), 궤도 판 칸(▲▼ 띠 포함)만 --dash-rise 만큼 솟음. 솟은 칸 양옆은 사선 어깨
+     꼭짓점 (유리판 왼쪽 위 = 0,0 · 솟은 높이 R · 어깨 폭 s = R × 0.7 · 판 칸 양옆 6px 바깥 x1·x2):
+       (0,R) → (x1-s,R) → (x1,0) → (x2,0) → (x2+s,R) → (W,R) → (W,H) → (0,H)
+     유리 바탕(.bgl)은 이 모양으로 자르고(clip-path), 위 외곽선은 청록 빛 선(흐린 넓은 빛 + 가는 선 + 솟은 칸 위 흰 반사)
+     턴 시작 번쩍(buildTurnFlash)도 같은 꼭짓점을 씀 → 모양이 늘 같음. 화면 크기가 바뀌면 onResize 가 다시 계산 */
+  function frameGeom() {
+    var fr = $('dashFrame'), pad = $('dash').querySelector('.pad');
+    var fb = fr.getBoundingClientRect(), pb = pad.getBoundingClientRect();
+    var W = fr.clientWidth, H = fr.clientHeight, R = H - $('dash').clientHeight;
+    var x1 = pb.left - fb.left - 6, x2 = pb.right - fb.left + 6, s = R * 0.7;
+    return { W: W, H: H, R: R, x1: x1, x2: x2, s: s };
+  }
+  // 위 외곽선 (왼쪽 끝 → 어깨 → 솟은 칸 윗변 → 어깨 → 오른쪽 끝). dy = 선 굵기만큼 안쪽으로 내림
+  function frameOutline(g, dy) {
+    var f = function (v) { return v.toFixed(1); }, y = g.R + dy, t = dy;
+    return 'M0 ' + f(y) + ' L' + f(g.x1 - g.s) + ' ' + f(y) + ' L' + f(g.x1) + ' ' + f(t) +
+      ' L' + f(g.x2) + ' ' + f(t) + ' L' + f(g.x2 + g.s) + ' ' + f(y) + ' L' + f(g.W) + ' ' + f(y);
+  }
+  function buildFrame() {
+    var g = frameGeom(), fr = $('dashFrame');
+    if (!g.W) return;
+    var pts = [[0, g.R], [g.x1 - g.s, g.R], [g.x1, 0], [g.x2, 0], [g.x2 + g.s, g.R], [g.W, g.R], [g.W, g.H], [0, g.H]];
+    fr.style.setProperty('--shape', 'polygon(' + pts.map(function (p) { return p[0].toFixed(1) + 'px ' + p[1].toFixed(1) + 'px'; }).join(',') + ')');
+    var d = frameOutline(g, 0.5);
+    $('frameLine').innerHTML =
+      '<defs><linearGradient id="frameGrad" x1="0" x2="1"><stop offset="0" stop-color="#3ee8ff" stop-opacity=".25"/><stop offset=".5" stop-color="#3ee8ff"/><stop offset="1" stop-color="#3ee8ff" stop-opacity=".25"/></linearGradient></defs>' +
+      '<path d="' + d + '" fill="none" stroke="#3ee8ff" stroke-opacity=".35" stroke-width="6" style="filter:blur(3px)"/>' +
+      '<path d="' + d + '" fill="none" stroke="url(#frameGrad)" stroke-width="1.5"/>' +
+      '<path d="M' + (g.x1 + 10).toFixed(1) + ' 3 L' + (g.x2 - 10).toFixed(1) + ' 3" stroke="rgba(255,255,255,.18)" stroke-width="1"/>';
+  }
+
+  /* ---------- 턴 시작 연출: 계기판 외곽선 번쩍 ----------
+     (12차) 계기판 진짜 모양대로 선을 그려서 번쩍 → (D2) 유리판 모양(사선 어깨 + 솟은 칸)을 그대로 따라감 (frameGeom)
+       청록 선 = 유리판 위 외곽선 / 안쪽 청록 빛 = 같은 모양 안쪽으로만 번짐 (바깥 바다 쪽으로는 안 번짐)
+     번쩍 SVG 는 유리판(.frame)과 같은 자리·크기 (style.css .turnflash-svg) → 같은 좌표를 씀 */
   var flashSvg = null;
   function buildTurnFlash() {
-    var dash = $('dash'), pad = dash.querySelector('.pad');
+    var dash = $('dash');
     if (!flashSvg) {
       flashSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       flashSvg.setAttribute('class', 'turnflash-svg');
@@ -475,25 +531,29 @@
       flashSvg.innerHTML =
         '<defs><clipPath id="tfClip"><path id="tfShape"/></clipPath>' +
         '<filter id="tfBlur" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="6"/></filter></defs>' +
-        '<g clip-path="url(#tfClip)"><path id="tfGlow" fill="none" stroke="rgba(255,210,63,.8)" stroke-width="16" filter="url(#tfBlur)"/></g>' +
-        '<path id="tfLine" fill="none" stroke="#FFD23F" stroke-width="3" stroke-linejoin="round"/>';
+        '<g clip-path="url(#tfClip)"><path id="tfGlow" fill="none" stroke="rgba(62,232,255,.85)" stroke-width="16" filter="url(#tfBlur)"/></g>' +
+        '<path id="tfLine" fill="none" stroke="#8ff4ff" stroke-width="3" stroke-linejoin="round" style="filter:drop-shadow(0 0 4px #3ee8ff)"/>';
       dash.appendChild(flashSvg);
     }
-    var d = dash.getBoundingClientRect(), p = pad.getBoundingClientRect();
-    var ox = d.left + dash.clientLeft, oy = d.top + dash.clientTop;    // 계기판 안쪽 왼쪽 위 = (0, 0)
-    var W = dash.clientWidth, H = dash.clientHeight;
-    var low = -dash.clientTop + 1.5;                                    // 낮은 칸 윗변 (밝은 테두리 줄 위에 겹침)
-    var top = p.top - 7 - oy + 1.5;                                     // 솟은 칸 윗변
-    var xa = p.left - 6 - ox + 1.5, xb = p.right + 6 - ox - 1.5;        // 솟은 칸 왼쪽·오른쪽 옆
-    var r = 12.5;                                                       // 둥근 모서리 (14 - 선 굵기 절반)
-    var f = function (v) { return v.toFixed(1); };
-    var outline = 'M0 ' + f(low) + ' L' + f(xa) + ' ' + f(low) + ' L' + f(xa) + ' ' + f(top + r) +
-      ' A' + r + ' ' + r + ' 0 0 1 ' + f(xa + r) + ' ' + f(top) + ' L' + f(xb - r) + ' ' + f(top) +
-      ' A' + r + ' ' + r + ' 0 0 1 ' + f(xb) + ' ' + f(top + r) + ' L' + f(xb) + ' ' + f(low) + ' L' + f(W) + ' ' + f(low);
-    var shape = outline + ' L' + f(W) + ' ' + f(H) + ' L0 ' + f(H) + ' Z';   // 계기판 전체 모양 (빛이 안쪽으로만 번지게 자르는 틀)
+    var g = frameGeom();
+    var outline = frameOutline(g, 1.5);
+    var shape = frameOutline(g, 0) + ' L' + g.W.toFixed(1) + ' ' + g.H.toFixed(1) + ' L0 ' + g.H.toFixed(1) + ' Z';   // 유리판 전체 모양 (빛이 안쪽으로만 번지게 자르는 틀)
     flashSvg.querySelector('#tfLine').setAttribute('d', outline);
     flashSvg.querySelector('#tfShape').setAttribute('d', shape);
-    flashSvg.querySelector('#tfGlow').setAttribute('d', shape);        // 빛은 둘레 전체(옛날처럼 네 변 안쪽) — 모양만 새것
+    flashSvg.querySelector('#tfGlow').setAttribute('d', shape);        // 빛은 둘레 전체 안쪽
+  }
+
+  /* ---------- 링 시계 (D2): 청록 호 길이 = 남은 시간 비율 (1 = 가득, 0 = 다 됨). 흰 점 = 호 끝 ----------
+     숫자는 turn.js 가 그대로 넣고, 이 호는 turn.js tick(0.1초마다)이 같이 부름 */
+  var CLOCK_LEN = 2 * Math.PI * 25;                                     // 링 둘레 (반지름 25)
+  function setClock(frac) {
+    frac = clamp(frac || 0, 0, 1);
+    var arc = $('clockArc'), dot = $('clockDot');
+    if (arc) arc.style.strokeDasharray = (CLOCK_LEN * frac).toFixed(2) + ' ' + CLOCK_LEN.toFixed(2);
+    if (dot) {
+      dot.style.transform = 'rotate(' + (360 * frac).toFixed(1) + 'deg)';
+      dot.style.opacity = frac > 0 ? '' : '0';
+    }
   }
   function playTurnStart() {
     var dash = $('dash');
@@ -525,6 +585,7 @@
     setMoveGauge(me ? me.move : C.movement.gaugeStart);
     setEnergyGauge(me ? me.hp : C.energy);
     $('timerNum').textContent = Math.ceil(rs.turn.limit / 1000);
+    setClock(1);
     $('delayNum').textContent = '--';
     state.pad.fill = 0;
     buildPad(me ? me.facing : 'right');
@@ -543,6 +604,7 @@
     measureCamera();
     if (cam.viewW && cam.viewH) focusOn(cx, cy);
     fitScaleLabels();
+    buildFrame();                     // 유리 계기판 모양도 새 크기에 맞게
     if (flashSvg) buildTurnFlash();   // 번쩍 테두리도 새 크기에 맞게
   }
 
@@ -552,6 +614,9 @@
     measureCamera();
     focusOnSub(C.cameraOn);
     fitScaleLabels();
+    buildFrame();
+    // 글꼴이 늦게 와서 부품 폭이 바뀌어도 유리판 모양이 맞게 한 번 더 (D2)
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { buildFrame(); if (flashSvg) buildTurnFlash(); });
     enablePanning();
     // 첫 차례 연출(번쩍·화살표·카메라)은 turn.js 가 함 (14차)
 
@@ -570,7 +635,7 @@
     rs: rs, submit: submit, onResult: onResult,
     mySubId: mySubId, isMyTurn: isMyTurn, canAct: canAct, canFire: canFire, matchNow: matchNow, restart: restart, onRestart: onRestart, markActive: markActive,
     cam: cam, state: state, getSub: getSub,
-    applyCamera: applyCamera, focusOn: focusOn, focusOnSub: focusOnSub, playTurnStart: playTurnStart,
+    applyCamera: applyCamera, focusOn: focusOn, focusOnSub: focusOnSub, playTurnStart: playTurnStart, setClock: setClock,
     setMoveGauge: setMoveGauge, placeSub: placeSub, showFacing: showFacing,
     copyPoints: copyPoints, defaultPoints: defaultPoints, padFx: padFx, u2p: u2p, unitsToWorld: unitsToWorld, padCurveY: padCurveY, curveSpline: curveSpline, setSubHp: setSubHp, setCurrent: setCurrent, selectItem: selectItem, drawPadCurve: drawPadCurve, setFireGauge: setFireGauge, gaugeToDistance: gaugeToDistance
   };
