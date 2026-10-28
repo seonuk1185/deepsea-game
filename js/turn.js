@@ -4,10 +4,20 @@
    이 파일은 「보여 주기」 + 「때가 되면 쪽지 내기」만 함:
    1) 20초 시계: 심판이 적어 둔 마감 시각(turn.deadline)까지 남은 초를 계기판 큰 숫자에 보여 줌
       0 이 되면 「시간 끝(timeout)」 쪽지를 냄 → 심판이 마감 시각이 지났는지 검사하고 다음 차례로 (rules.js 맨 위 「턴 시계」 설명)
-      쏘면 그 차례 시계는 멈춤 (심판 turn.fired) → 숫자도 그 자리에 멈춤
-   2) 어뢰 재생이 끝나면(torpedo.js → Game.afterShot) 쏜 잠수함의 「턴 넘기기」 쪽지를 냄 (판이 끝났으면 승리/패배 화면)
+      (2026-10-28 형님 결정) 쏴도, 어뢰가 날아가는 동안에도 시계는 계속 줄어듦 (멈추지 않음)
+   2) (2026-10-28) 쏜 뒤에도 차례는 저절로 안 넘어감: 재생이 끝나면 게이지·시간이 남은 만큼 다시 움직일 수 있고,
+      차례는 시간 끝 / 턴 넘기기(Tab·버튼) 로만 넘어감. 어뢰 재생이 끝났을 때(Game.afterShot) 하는 일:
+        - 판이 끝났으면(그 한 발로 격침) → 시간·게이지가 남았어도 바로 승리/패배 화면
+        - 날아가는 동안 시계가 0 이 됐으면 → 지금 시간 끝 쪽지 (아래 「정한 것」)
+        - 내 어뢰에 내가 격침됐는데 판은 안 끝났으면(팀전) → 움직일 수 없으니 바로 턴 넘기기
+      ※ 정한 것: 어뢰가 날아가는 중에 시계가 0 이 되면 재생을 끊지 않고 끝까지 보여 준 뒤 넘김
+        (도중에 끊으면 데미지·격침이 보이기도 전에 화면이 상대 차례로 휙 넘어가서 헷갈림)
+        그 시간 끝 쪽지의 at = 재생이 끝난 시각 (마감보다 늦음). 심판은 at 이 마감 뒤인지만 보니까 받아 줌 → 같은 기록이면 늘 같은 결과
+      ※ (2026-10-28 형님 결정) 0 이 되기 전에 발사를 누르기 시작했으면 시간 끝이 끊지 않음 → 누르고 있는 동안은 시간 끝 쪽지를 미룸
+        (쏘면 위 「날아가는 중」과 같이 재생이 끝난 뒤 넘어감, 판단은 심판 rules.js holdInTime)
    3) 차례가 바뀔 때마다: 카메라를 차례 잠수함으로, 내 차례면 계기판 번쩍(playTurnStart), 상대 차례면 「상대 차례」 작은 표시
       + 내 조작 잠금 표시(조이스틱·발사·턴 넘기기 흐리게. 궤도 판 점은 상대 차례에도 미리 맞춰 둘 수 있음)
+      + 이미 쏜 차례면 발사 버튼만 흐리게 (.fired)
    4) 상대 차례 대신 해 주기 = 「컴퓨터 상대 자리」 (Game.bots). 지금은 임시로 아무것도 안 하고 2초 뒤 턴 넘기기 쪽지만 냄
       ③ 단계에서 진짜 컴퓨터 상대가 이 자리에 같은 모양(쪽지를 돌려주는 함수)으로 들어오면 됨
    5) 판 끝: 승리 / 패배 / 비김 + 「다시 하기」 (Game.restart = 새 판, 새 주사위 번호)
@@ -35,16 +45,17 @@
 
   /* ---------- 시계 + 컴퓨터 상대 자리 — 0.1초마다 ----------
      (requestAnimationFrame 대신 setInterval: 탭이 느려져도 시간 끝은 제때 오게. 시계 숫자는 0.1초면 충분) */
-  var shownSec = null, waitingEnd = false;
+  var shownSec = null, overShown = false, waitingOver = false;
   function tick() {
-    if (rs.over || waitingEnd) return;
+    if (overShown) return;
     var t = rs.turn, now = G.matchNow();
-    var left = t.fired ? t.deadline - t.firedAt : t.deadline - now;   // 쏜 뒤엔 그 자리에 멈춤
-    var sec = Math.max(0, Math.ceil(left / 1000));
+    var sec = Math.max(0, Math.ceil((t.deadline - now) / 1000));   // 쏜 뒤에도·어뢰가 날아가는 중에도 계속 줄어듦 (2026-10-28)
     if (sec !== shownSec) { shownSec = sec; timerNum.textContent = sec; }
 
-    if (t.fired || G.state.busy) return;                          // 어뢰 차례 = 시계 멈춤, 재생 끝나면 afterShot 이 넘김
+    if (rs.over || waitingOver) return;                           // 판을 끝낸 어뢰를 보여 주는 중 → 재생이 끝나면 afterShot 이 판 끝 화면
+    if (G.state.busy) return;                                     // 어뢰가 날아가는 중엔 쪽지 안 냄 (시간이 끝나도 재생이 끝난 뒤에 넘김)
     if (now >= t.deadline) {                                      // 시간 끝 → 쪽지 (심판이 마감 시각 지났는지 다시 검사)
+      if (G.fireHold.isHolding()) return;                         // 0 전에 누르기 시작한 발사는 끊지 않음 (떼면 쏘고, 재생 끝나면 넘김)
       G.submit({ type: 'timeout', subId: t.activeId, at: Math.max(Math.round(now), t.deadline) });
       return;
     }
@@ -56,14 +67,21 @@
   }
   setInterval(tick, 100);
 
-  /* ---------- 어뢰 재생 끝 (torpedo.js 가 부름) → 턴 넘기기 쪽지 또는 판 끝 화면 ---------- */
+  /* ---------- 어뢰 재생 끝 (torpedo.js 가 부름) → 판 끝 화면 / (날아가는 중 시간이 끝났으면) 시간 끝 쪽지 ----------
+     (2026-10-28) 예전처럼 저절로 턴 넘기기 쪽지를 내지 않음 → 시간·게이지가 남았으면 다시 움직일 수 있음 */
   G.afterShot = function () {
-    waitingEnd = true;
-    setTimeout(function () {
-      waitingEnd = false;
-      if (rs.over) { showOver(); return; }
-      if (rs.turn.fired) G.submit({ type: 'endTurn', subId: rs.turn.activeId });
-    }, (T.fireEndDelay || 0) * 1000);
+    if (rs.over) {                                                // 이 한 발로 판이 끝남 → 시간·게이지가 남았어도 바로 판 끝 화면
+      waitingOver = true;
+      setTimeout(function () { waitingOver = false; showOver(); }, (T.fireEndDelay || 0) * 1000);
+      return;
+    }
+    var a = G.getSub(rs.turn.activeId);
+    if (a && a.sunk) {                                            // 내 어뢰에 내가 격침됨(팀전에서 판은 계속) → 움직일 수 없으니 바로 넘김
+      G.submit({ type: 'endTurn', subId: a.id });
+      return;
+    }
+    updateLock();
+    tick();                                                       // 날아가는 중에 시간이 끝났으면 여기서 바로 시간 끝 쪽지
   };
 
   /* ---------- 차례가 바뀜 (턴 넘기기·시간 끝 결과) → 연출 ---------- */
@@ -82,7 +100,8 @@
 
   // 잠금 표시 + 「상대 차례」 표시 (0.1초마다 확인해도 되지만 바뀔 때만 부름 + 안전하게 0.25초마다 한 번)
   function updateLock() {
-    gameEl.classList.toggle('locked', !G.isMyTurn() || rs.turn.fired);
+    gameEl.classList.toggle('locked', !G.isMyTurn());
+    gameEl.classList.toggle('fired', G.isMyTurn() && rs.turn.fired);   // 쏜 뒤엔 발사 버튼만 흐리게 (이동·턴 넘기기는 됨, 2026-10-28)
     var t = rs.turn, a = G.getSub(t.activeId), me = G.getSub(G.mySubId);
     var other = !rs.over && a && t.activeId !== G.mySubId;
     if (other) {
@@ -102,6 +121,7 @@
     $('overText').textContent = { win: '상대 잠수함을 모두 격침했어요.', lose: '내 잠수함이 격침됐어요.', draw: '모두 격침됐어요.' }[kind];
     overBox.className = 'over ' + kind;
     overBox.hidden = false;
+    overShown = true;
     timerNum.textContent = '--';
     G.markActive(null);                                           // 차례 화살표도 끔
     updateLock();
@@ -110,7 +130,7 @@
     overBox.hidden = true;
     G.restart();                                                  // 새 판 (새 주사위 번호) — main.js
   });
-  G.onRestart(function () { waitingEnd = false; overBox.hidden = true; presentTurn(); });
+  G.onRestart(function () { overShown = false; waitingOver = false; overBox.hidden = true; presentTurn(); });
 
   G.turnUi = { tick: tick, showOver: showOver, presentTurn: presentTurn };
   presentTurn();                                                  // 첫 차례 연출

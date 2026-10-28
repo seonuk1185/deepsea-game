@@ -50,13 +50,15 @@
 
   /* ---------- 내 차례인가 (14차) ----------
      isMyTurn = 지금 차례가 내 잠수함이고, 판이 안 끝났고, 내 잠수함이 살아 있음
-     canAct   = 거기에 더해 이번 차례에 아직 안 쐈고(쏘면 그 차례는 이동·발사 끝), 어뢰를 보여 주는 중이 아님
-     → 조이스틱·WASD·발사·턴 넘기기는 canAct 일 때만. 궤도 판 점(조준)은 상대 차례에도 미리 맞춰 둘 수 있음 */
+     canAct   = 거기에 더해 어뢰를 보여 주는 중이 아님 (2026-10-28: 쏜 뒤에도 재생이 끝나면 다시 움직일 수 있음)
+     canFire  = 거기에 더해 이번 차례에 아직 안 쐈음 (한 차례에 한 발)
+     → 조이스틱·WASD·턴 넘기기는 canAct, 발사는 canFire 일 때만. 궤도 판 점(조준)은 상대 차례에도 미리 맞춰 둘 수 있음 */
   function isMyTurn() {
     var me = getSub(mySubId);
     return !rs.over && rs.turn.activeId === mySubId && !!me && !me.sunk;
   }
-  function canAct() { return isMyTurn() && !rs.turn.fired && !state.busy; }
+  function canAct() { return isMyTurn() && !state.busy; }
+  function canFire() { return canAct() && !rs.turn.fired; }
 
   var seaView = $('seaView'), world = $('world'), worldBg = $('worldBg'), worldThings = $('worldThings');
 
@@ -566,7 +568,7 @@
   // 다음 단계에서 쓸 기능을 밖에서 부를 수 있게 열어 둠
   window.Game = {
     rs: rs, submit: submit, onResult: onResult,
-    mySubId: mySubId, isMyTurn: isMyTurn, canAct: canAct, matchNow: matchNow, restart: restart, onRestart: onRestart, markActive: markActive,
+    mySubId: mySubId, isMyTurn: isMyTurn, canAct: canAct, canFire: canFire, matchNow: matchNow, restart: restart, onRestart: onRestart, markActive: markActive,
     cam: cam, state: state, getSub: getSub,
     applyCamera: applyCamera, focusOn: focusOn, focusOnSub: focusOnSub, playTurnStart: playTurnStart,
     setMoveGauge: setMoveGauge, placeSub: placeSub, showFacing: showFacing,

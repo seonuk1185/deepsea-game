@@ -307,6 +307,8 @@ button{font:inherit;color:inherit;cursor:pointer}
 .game.busy .fire,.game.busy .joy{opacity:.45}
 /* (14차) 내 차례가 아닐 때(상대 차례·쏜 뒤·판 끝): 조이스틱·발사·턴 넘기기 흐리게. 궤도 판 점은 그대로 (미리 맞춰 둘 수 있음) */
 .game.locked .fire,.game.locked .joy,.game.locked .skip{opacity:.45}
+/* (2026-10-28) 이번 차례에 이미 쐈을 때: 발사 버튼만 흐리게 (이동·턴 넘기기는 그대로 됨) */
+.game.fired .fire{opacity:.45}
 
 /* ===== (14차) 미니맵 — 오른쪽 위, Ⅱ 단추 바로 아래 (왼쪽 위·가운데 위는 채팅 자리) =====
    맵 모양 그대로 (가로 : 세로 = config.js world, minimap.js 가 넣음). 점은 % 자리라 크기가 바뀌어도 그대로 */

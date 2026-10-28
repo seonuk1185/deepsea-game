@@ -16,7 +16,8 @@
      이동:      { type: 'move',    subId: 'me', steps: [[dx, dy], ...], facing: 'left' | 'right' }
                   steps = 가고 싶은 만큼의 작은 걸음들 (맵 단위). 한 걸음은 조이스틱 한 화면(최대 0.05초)만큼
                   심판이 한 걸음씩 「게이지 남은 만큼만, 맵 안으로만」 옮기고 실제로 간 거리만큼 게이지를 깎음
-     발사:      { type: 'fire',    subId: 'me', points: [[가로 칸, 세로 %], x3], distance: 거리 칸(0 ~ 최대 거리) }
+     발사:      { type: 'fire',    subId: 'me', points: [[가로 칸, 세로 %], x3], distance: 거리 칸(0 ~ 최대 거리), holdAt: 누르기 시작한 판 시계 }
+                  holdAt (2026-10-28) = 발사 버튼·스페이스를 누르기 시작한 시각. 마감 전에 누르기 시작했으면 마감 뒤에 떼도 받아 줌 (아래 「턴 시계」)
      턴 넘기기: { type: 'endTurn', subId: 'me' }
      시간 끝:   { type: 'timeout', subId: 지금 차례 }   (14차) 20초가 다 됐을 때 화면이 냄
      모든 쪽지에는 at = 「판 시계」(판 시작부터 지난 1/1000초)가 붙음 (화면 창구 Game.submit 이 찍어 줌)
@@ -26,7 +27,14 @@
      화면은 자기 시계로 「마감까지 남은 초」를 계기판에 보여 주기만 하고, 0 이 되면 「시간 끝(timeout)」 쪽지를 냄
      심판은 그 쪽지의 at 이 마감 시각을 지났는지만 검사 → 지났으면 다음 차례로. 마감 뒤에 온 이동·발사 쪽지는 거절
      → 어느 컴퓨터든 같은 쪽지 기록(at 포함)이면 똑같은 순간에 차례가 넘어감. 온라인 때는 서버가 at 을 찍고 timeout 도 서버가 냄
-     어뢰를 쏘면 그 차례 시계는 멈춤 (turn.fired). 어뢰 재생이 끝나면 화면이 「턴 넘기기」 쪽지를 내서 다음 차례로
+     (2026-10-28 형님 결정) 쏴도 시계는 계속 감 (멈추지 않음). 쏜 뒤에도 게이지·시간이 남아 있으면 이동 가능, 발사는 한 차례 한 발 그대로
+       → 쏜 뒤 차례가 넘어가는 때도 똑같이 「시간 끝」 또는 「턴 넘기기」 쪽지뿐 (어뢰 재생이 끝났다고 저절로 넘기지 않음)
+       어뢰가 날아가는 중에 마감이 지나면: 화면이 재생을 끝까지 보여 준 뒤 「시간 끝」 쪽지를 냄 (그 쪽지의 at = 재생이 끝난 시각, 마감보다 늦음)
+       심판은 at 이 마감 뒤인지만 보니까 늦게 와도 받아 줌 → 다음 차례 시작 시각 = 그 at (쪽지에 적혀 있으니 다시 돌려도 똑같음)
+     (2026-10-28 형님 결정) 마감 전에 발사를 누르기 시작했으면 시간 끝이 끊지 않음: 손을 뗄 때(또는 끝까지 차서 자동 발사) 쏜 것을 받아 줌
+       판단은 쪽지에 적힌 숫자로만: holdAt(누르기 시작) 이 마감 전이고, at - holdAt 이 「게이지 한 번 차는 시간(fire.sweepTime) + 조금(fire.holdSlackMs)」 이하일 때
+       → 그보다 길면 거절 (게이지는 sweepTime 이면 저절로 쏘니까 그 이상 누르고 있을 수 없음 = 온라인 때 「마감 뒤에 쏘려고 holdAt 을 속인」 쪽지 막기)
+       마감 뒤에 누르기 시작한 발사(holdAt 이 마감 뒤)는 안 됨
    ========================================================= */
 (function (root) {
   'use strict';
@@ -47,7 +55,8 @@
   function randomInt(state, lo, hi) { return lo + Math.floor(random(state) * (hi - lo + 1)); }
 
   // 조류 새로 굴리기 (방향 4가지 + 세기 0~5). (14차) 차례가 바뀔 때마다 여기서 굴림
-  //   (2단계 게임규칙: 「매 턴 방향·세기 무작위」, 형님 확정) → 같은 주사위라 모든 컴퓨터에서 같은 조류. 첫 차례만 config.js current 값 그대로
+  //   (2단계 게임규칙: 「매 턴 방향·세기 무작위」, 형님 확정) → 같은 주사위라 모든 컴퓨터에서 같은 조류
+  //   (2026-10-28 형님 결정) 첫 차례도 무작위 (주사위 번호가 다르면 첫 조류도 다름). config.js current 는 rollCurrent: false 일 때만 씀
   var CURRENT_DIRS = ['left', 'right', 'up', 'down'];
   function rollCurrent(state) {
     state.current = { dir: CURRENT_DIRS[randomInt(state, 0, 3)], strength: randomInt(state, 0, 5) };
@@ -87,7 +96,7 @@
       over: null,                                  // 판 끝 = { winner: 이긴 팀 이름 (모두 격침이면 null = 비김), at }
       log: []                                      // 받은 주문서 기록 (같은 seed 로 처음부터 다시 돌리면 똑같은 판이 나옴)
     };
-    beginTurn(state, 0, C, true);                  // 첫 차례 시작 (판 시계 0). 첫 차례는 조류를 안 굴림 (config.js 값)
+    beginTurn(state, 0, C);                        // 첫 차례 시작 (판 시계 0). (2026-10-28) 첫 차례도 조류를 주사위로 굴림
     return state;
   }
 
@@ -104,19 +113,29 @@
         nextTurn: 순서표에서 다음 차례인 「살아 있는」 잠수함으로 넘김 (격침된 잠수함은 건너뜀). 1:1·개인전·팀전 모두 같은 표로
         beginTurn: 차례 시작 준비 — 그 잠수함 이동 게이지 가득(2단계 규칙 「매 턴 가득 참」), 조류 새로 굴림, 마감 시각, 발사 1번
      ========================================================= */
-  function beginTurn(state, at, C, first) {
+  function beginTurn(state, at, C) {
     var t = state.turn, s = getSub(state, t.activeId);
     if (s) s.move = C.movement.gaugeStart;
-    if (!first && !(C.turn && C.turn.rollCurrent === false)) rollCurrent(state);
+    if (!(C.turn && C.turn.rollCurrent === false)) rollCurrent(state);   // 첫 차례 포함 매 차례 (2026-10-28 형님 결정)
     t.limit = turnLimitMs(C);
     t.startAt = at;
     t.deadline = at + t.limit;
     t.shotsLeft = 1;                               // 한 차례에 한 발 (나중에 아이템 「2연발」이 이 숫자를 2로)
-    t.fired = false;                               // 다 쐈으면 true → 그 차례 시계 멈춤 + 이동·발사 잠김 → 어뢰 재생 끝나면 턴 넘기기
+    t.fired = false;                               // 다 쐈으면 true → 그 차례엔 발사만 잠김 (이동·시계는 그대로, 2026-10-28)
     t.firedAt = null;
   }
   // 아직 시간이 남았나 (at 이 없는 쪽지는 검사 안 함 — 확인용·옛 기록)
   function inTime(state, at) { return at == null || !(at > state.turn.deadline); }
+  // (2026-10-28) 마감 뒤에 온 발사라도: 마감 전에 누르기 시작했고(holdAt), 누른 시간이 게이지 한 번 차는 시간 + 조금 이하면 받아 줌
+  //   누른 시간이 그보다 길면 거절 = 게이지는 sweepTime 이면 저절로 쏘니까 그 이상은 있을 수 없음 (온라인 때 holdAt 속이기 막기)
+  function holdInTime(state, at, holdAt, C) {
+    var t = state.turn;
+    if (at == null || holdAt == null || !isFinite(holdAt)) return false;
+    if (holdAt > t.deadline || holdAt < t.startAt || holdAt > at) return false;   // 마감 뒤에 누르기 시작 = 안 됨
+    var F = C.fire || {};
+    var maxHold = Math.round((F.sweepTime || 1.6) * 1000) + (F.holdSlackMs != null ? F.holdSlackMs : 250);
+    return at - holdAt <= maxHold;
+  }
   function nextTurn(state) {
     var t = state.turn, n = t.order.length;
     for (var k = 1; k <= n; k++) {
@@ -305,10 +324,11 @@
     var t = state.turn, res;
     var at = action.at == null || !isFinite(+action.at) ? null : +action.at;
 
+    var holdAt = action.holdAt == null || !isFinite(+action.holdAt) ? null : +action.holdAt;
     if (action.type === 'move' || action.type === 'fire') {
       if (sub.sunk) return { ok: false, why: '격침됨' };           // 격침된 잠수함은 못 움직이고 못 쏨
-      if (t.fired) return { ok: false, why: '이미 쏨' };           // 쏜 뒤엔 그 차례에 이동·발사 못 함 (어뢰 재생이 끝나면 턴 넘김)
-      if (!inTime(state, at)) return { ok: false, why: '시간 끝' }; // 마감 시각 뒤에 온 쪽지
+      // 마감 시각 뒤에 온 쪽지는 거절 — 단, 마감 전에 누르기 시작한 발사는 받아 줌 (2026-10-28 형님 결정, holdInTime)
+      if (!inTime(state, at) && !(action.type === 'fire' && holdInTime(state, at, holdAt, C))) return { ok: false, why: '시간 끝' };
     }
 
     if (action.type === 'move') {
@@ -320,7 +340,8 @@
       res = { ok: true, type: 'move', subId: sub.id, x: sub.x, y: sub.y, facing: sub.facing, move: sub.move, moved: moved };
 
     } else if (action.type === 'fire') {
-      if (t.shotsLeft <= 0) return { ok: false, why: '발사 횟수 없음' };
+      // 한 차례에 한 발 (쏜 뒤 이동은 됨 — 2026-10-28 형님 결정. 두 번째 발사만 거절)
+      if (t.fired || t.shotsLeft <= 0) return { ok: false, why: '이미 쏨' };
       var ch = C.character;
       var points = cleanPoints(action.points, ch);
       var distance = clamp(Math.round(+action.distance || 0), 0, ch.limit.right);   // 거리는 정수 칸 (화면 DELAY 숫자와 같음)
@@ -329,16 +350,15 @@
       shot.events.forEach(function (ev) { getSub(state, ev.id).hp = ev.hpAfter; });
       shot.sunk.forEach(function (id) { getSub(state, id).sunk = true; });
       t.shotsLeft--;
-      if (t.shotsLeft <= 0) { t.fired = true; t.firedAt = at != null ? at : t.startAt; }   // 다 쐈으면 시계 멈춤
+      if (t.shotsLeft <= 0) { t.fired = true; t.firedAt = at != null ? at : t.startAt; }   // 다 쐈음 (시계는 계속 감)
       // 한 팀만 남았으면(또는 모두 격침) 판 끝 — 결과는 지금 정해지고, 화면은 어뢰 재생이 끝난 뒤 보여 줌
       var teams = aliveTeams(state);
       if (teams.length <= 1) state.over = { winner: teams.length ? teams[0] : null, at: t.firedAt };
-      res = { ok: true, type: 'fire', subId: sub.id, points: points, distance: distance, shot: shot, over: state.over };
+      res = { ok: true, type: 'fire', subId: sub.id, points: points, distance: distance, shot: shot, over: state.over, late: !inTime(state, at) };
 
     } else if (action.type === 'endTurn' || action.type === 'timeout') {
-      // 턴 넘기기 (버튼·Tab·어뢰 재생 끝·컴퓨터 상대) / 시간 끝 (마감 시각이 지났을 때만 받음)
+      // 턴 넘기기 (버튼·Tab·컴퓨터 상대·내 어뢰에 내가 격침됨) / 시간 끝 (마감 시각이 지났을 때만 받음 — 쏜 뒤에도 똑같이)
       //   격침된 잠수함도 자기 차례를 넘길 수는 있음 (내가 쏜 어뢰에 내가 격침된 뒤 재생이 끝났을 때)
-      if (action.type === 'timeout' && t.fired) return { ok: false, why: '쏜 뒤엔 시계 멈춤' };
       if (action.type === 'timeout' && at != null && at < t.deadline) return { ok: false, why: '아직 시간 남음' };
       // 다음 차례 시작 시각: 쪽지의 at (없으면 시간 끝 = 마감 시각, 턴 넘기기 = 이번 차례 시작 시각 → 그래도 늘 같은 결과)
       var startAt = at != null ? Math.max(at, t.startAt) : (action.type === 'timeout' ? t.deadline : t.startAt);

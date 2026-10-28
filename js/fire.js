@@ -5,8 +5,11 @@
       끝(노란 한계선 = 최대 거리)까지 차면 손을 안 떼도 그 자리에서 저절로 결정 (뒤에 손을 떼도 아무 일 없음)
    3) 정해지면 바로 「발사 주문서」를 냄 (Game.submit → 심판 rules.js → 재생 torpedo.js). 어뢰가 날아가는 동안은 발사 버튼이 잠김
    4) (12차) 키보드 스페이스도 똑같이: 누르기·떼기를 holdStart / holdRelease 한 곳에서 처리 → 버튼과 키가 같은 코드를 씀
-   5) (14차) 내 차례이고 이번 차례에 아직 안 쐈을 때만 (Game.canAct). 한 차례에 한 발
-      차례가 바뀌면(시간 끝 등) 누르고 있던 것은 안 쏘고 원래대로 (abort — turn.js 가 부름)
+   5) (14차) 내 차례이고 이번 차례에 아직 안 쐈을 때만 (Game.canFire). 한 차례에 한 발
+      차례가 바뀌면(턴 넘기기 등) 누르고 있던 것은 안 쏘고 원래대로 (abort — turn.js 가 부름)
+   6) (2026-10-28 형님 결정) 시계가 0 이 되기 전에 누르기 시작했으면 시간 끝이 끊지 않음
+      → 떼거나 끝까지 찰 때까지 그대로 차오르고, 쏜 쪽지에 「누르기 시작한 시각(holdAt)」을 담아 보냄 → 심판이 받아 줌
+      그동안 turn.js 는 시간 끝 쪽지를 안 냄 (Game.fireHold.isHolding). 0 이 된 뒤에 누르기 시작하면 안 됨
    main.js 다음에 불러야 함 (window.Game 을 씀)
    ========================================================= */
 (function () {
@@ -36,8 +39,10 @@
      id = 누른 것 이름 (손가락 번호, 키보드는 'key'). 시작했으면 true */
   function holdStart(id) {
     if (hold) return false;                                    // 한 번에 하나만 (손가락 하나 또는 키 하나)
-    if (!G.canAct()) return false;                             // 상대 차례·이미 쏨·어뢰가 날아가는 중엔 못 쏨 (한 차례에 한 발)
-    hold = { id: id, t0: performance.now(), before: G.state.pad.fill };
+    if (!G.canFire()) return false;                            // 상대 차례·이미 쏨·어뢰가 날아가는 중엔 못 쏨 (한 차례에 한 발)
+    var now = Math.round(G.matchNow());
+    if (now >= G.rs.turn.deadline) return false;               // 시계가 0 이 된 뒤엔 새로 누를 수 없음
+    hold = { id: id, t0: performance.now(), at: now, before: G.state.pad.fill };   // at = 누르기 시작한 판 시계 (쪽지 holdAt)
     btn.classList.add('held');                                 // 키로 눌러도 버튼이 눌린 모양
     G.setFireGauge(0);
     requestAnimationFrame(frame);
@@ -58,11 +63,12 @@
   function decide(e) { holdRelease(e.pointerId); }
   // 거리 확정 + 어뢰 발사 (떼거나, 끝까지 차거나)
   function shoot(v) {
+    var holdAt = hold ? hold.at : null;
     hold = null;
     btn.classList.remove('held');
     G.setFireGauge(v);
 
-    if (!G.canAct()) { G.setFireGauge(0); return; }            // 누르는 사이 차례가 끝났으면 안 쏨
+    if (!G.canFire()) { G.setFireGauge(0); return; }           // 누르는 사이 차례가 끝났으면 안 쏨
     var dist = G.gaugeToDistance(v);
     G.state.shot = {
       gauge: v,
@@ -73,7 +79,8 @@
     console.log('[발사 거리 결정]', G.state.shot);
     // 어뢰 발사! = 「발사 주문서」를 냄: 지금 궤도 판 점 모양 + 화면 DELAY 칸과 같은 숫자(반올림한 거리 칸)
     //   → 심판(rules.js)이 한 발 전체를 계산 → torpedo.js 가 그 결과를 재생
-    G.submit({ type: 'fire', subId: G.mySubId, points: G.copyPoints(G.state.pad.points), distance: Math.round(dist) });
+    //   holdAt = 누르기 시작한 시각 → 마감 직전에 눌러 마감 뒤에 떼도 심판이 받아 줌 (2026-10-28)
+    G.submit({ type: 'fire', subId: G.mySubId, points: G.copyPoints(G.state.pad.points), distance: Math.round(dist), holdAt: holdAt });
   }
   // 누르고 있던 것이 누구든 안 쏘고 원래대로 (차례가 바뀌었을 때·다시 하기)
   function abort() {
@@ -95,5 +102,7 @@
   btn.addEventListener('lostpointercapture', cancel);         // pointerup 뒤에 오면 이미 끝난 상태라 아무 일 없음
 
   // 키보드(keys.js)가 쓰는 것: 스페이스 누름 = holdStart('key'), 뗌 = holdRelease('key')
-  G.fireHold = { start: holdStart, release: holdRelease, cancel: holdCancel, abort: abort };
+  //   isHolding = 지금 누르고 있나 (turn.js 가 시간 끝 쪽지를 미룰 때 봄)
+  G.fireHold = { start: holdStart, release: holdRelease, cancel: holdCancel, abort: abort,
+                 isHolding: function () { return !!hold; } };
 })();
