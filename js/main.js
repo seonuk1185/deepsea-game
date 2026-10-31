@@ -311,12 +311,13 @@
     drawPadCurve();
     setFireGauge(state.pad.fill);
 
-    // 거리 눈금 (판 안 맨 아래에 겹친 띠) — 잠수함 쪽 끝 = 0. 1칸마다 작은 금, 3칸마다 큰 금 + 숫자 3, 6, 9 … 39 (판 모눈 세로줄과 같은 자리)
+    // 거리 눈금 (2026-10-31: 거리 게이지 막대 바로 밑 띠 — 예전엔 판 맨 아래라 ▼ 탭이 가렸음) — 잠수함 쪽 끝 = 0.
+    //   1칸마다 작은 금, 3칸마다 큰 금 + 숫자 3, 6, 9 … 39 (판 모눈 세로줄과 같은 자리). 게이지 끝(최대 거리) 뒤는 흐리게(.far)
     var s = '';
     for (var u = 1; u < P.span; u++) {
-      var big = u % P.labelEvery === 0;
-      s += '<span class="tick' + (big ? ' major' : '') + '" style="left:' + fx(u) + '%"></span>';
-      if (big) s += '<span class="num" style="left:' + fx(u) + '%">' + u + '</span>';
+      var big = u % P.labelEvery === 0, far = u > lim.right ? ' far' : '';
+      s += '<span class="tick' + (big ? ' major' : '') + far + '" style="left:' + fx(u) + '%"></span>';
+      if (big) s += '<span class="num' + far + '" style="left:' + fx(u) + '%">' + u + '</span>';
     }
     $('padScale').innerHTML = s;
     $('padDist').classList.toggle('rtl', L);   // 터지는 거리 숫자 = 잠수함 반대쪽 위 구석 (왼쪽을 보면 왼쪽 구석)
