@@ -170,29 +170,17 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 .slot.sel i{color:var(--amber)}
 
 /* C. 궤도 판 — 계기판 가운데만 위로 솟은 칸: 위 여백을 --dash-rise 만큼 당겨서 양옆 부품보다 높게 */
-.pad{--tab-w:26px;--tab-h:14px;flex:1 1 auto;min-width:150px;padding:2px 3px 0;display:flex;gap:3px;margin-top:calc(-1 * var(--dash-rise));
-  margin-bottom:-5px}   /* 계기판 아래 여백(5px)까지 내려 씀 → ▼ 줄을 넣고도 모눈 판이 덜 줄어듦 (안전 여백 safe-b 는 그대로 남음) */
-/* (2026-10-31) ▲▼ 탭 전용 줄: 모눈 판(.screen) 위에 ▲ 줄, 아래에 ▼ 줄 (높이 --lane = 탭 높이)
-   핀·한계 상자의 세로 0~100% 는 모눈 판 안에서만 → 어느 캐릭터 틀(한계 상자 10~90% 등)이어도 핀이 탭 밑에 깔릴 수 없음
-   마우스 PC 는 탭이 숨으니 줄도 0 (모눈 판이 그만큼 큼) */
-.padmain{--lane:var(--tab-h);position:relative;flex:1;min-width:0;display:flex;flex-direction:column;padding:var(--lane) 0;
-  border-radius:3px;background:rgba(1,10,16,.55);box-shadow:inset 0 0 0 1px rgba(62,232,255,.14)}
-/* (2026-10-31) 점마다 ▲▼ 버튼: ▲ = 위 탭 줄, ▼ = 아래 탭 줄, 가로 자리 = 그 점 (--px, main.js 가 넣음)
-   보이는 쇠 탭(::before)은 작게(폰 26×14, 2026-10-31 형님: 32×17 에서 줄임) = 탭 줄 높이와 같음 → 탭은 모눈 판에 안 걸침
-   버튼 자체(투명)는 더 크게 = 손가락 닿는 범위 약 32×32: 탭보다 양옆 3px, 판 바깥쪽(바다·화면 아래 끝)으로 --out, 모눈 판 안쪽으로는 --in(2px)만
-   (모든 틀의 핀은 판 끝에서 10% 이상 떨어져 있어서 2px 은 핀에 안 닿음). 판 끝에 붙은 점이어도 탭이 판 밖으로 안 나가게 clamp */
-.pinbtn{--bw:var(--tab-w);--bh:var(--tab-h);--out:16px;--in:2px;position:absolute;z-index:8;display:flex;align-items:center;justify-content:center;touch-action:none;
-  left:clamp(calc(var(--bw) / 2),var(--px,50%),calc(100% - var(--bw) / 2));width:calc(var(--bw) + 6px);margin-left:calc(var(--bw) / -2 - 3px);
-  height:calc(var(--bh) + var(--out) + var(--in))}
-.pinbtn::before{content:"";position:absolute;z-index:-1;left:3px;right:3px;height:var(--bh);
-  background:linear-gradient(180deg,var(--m-top),var(--m-bot));box-shadow:inset 0 1px 0 rgba(200,235,255,.18),inset 0 0 0 1px rgba(255,207,74,.22)}
-.pinbtn.up{top:calc(-1 * var(--out));padding:var(--out) 0 var(--in)}
-.pinbtn.up::before{top:var(--out);clip-path:polygon(0 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,4px 100%,0 calc(100% - 4px))}
-.pinbtn.dn{bottom:calc(-1 * var(--out));padding:var(--in) 0 var(--out)}
-.pinbtn.dn::before{bottom:var(--out);clip-path:polygon(4px 0,calc(100% - 4px) 0,100% 4px,100% 100%,0 100%,0 4px)}
-.pinbtn svg{width:9px;height:9px}
-.pinbtn:active::before,.pinbtn.held::before{background:linear-gradient(180deg,#1a252c,#0b1218);box-shadow:inset 0 0 8px rgba(255,207,74,.55)}
-.pinbtn:active svg,.pinbtn.held svg{filter:drop-shadow(0 0 4px var(--amber))}
+.pad{flex:1 1 auto;min-width:150px;padding:2px 3px 0;display:flex;gap:3px;margin-top:calc(-1 * var(--dash-rise))}
+.padmain{position:relative;flex:1;min-width:0;display:flex;flex-direction:column}
+/* (20차, 2026-10-31) 손가락 판 = 세로 칸 3개 (핀마다 한 칸, 경계 = 이웃 핀 가로 자리의 가운데. 자리는 pad.js 가 넣음)
+   칸을 만지는 동안만: 그 칸에 아주 흐린 청록 띠(.pcolband) + 핀 옆 작은 앰버 ▲/▼(.pchint = 움직일 방향). 둘 다 손가락을 안 막음 */
+.pcolband{position:absolute;z-index:3;top:0;bottom:0;pointer-events:none;display:none;border-radius:2px;
+  background:linear-gradient(180deg,rgba(62,232,255,.04),rgba(62,232,255,.10) 50%,rgba(62,232,255,.04));
+  box-shadow:inset 1px 0 0 rgba(62,232,255,.22),inset -1px 0 0 rgba(62,232,255,.22)}
+.pcolband.on{display:block}
+.pchint{position:absolute;z-index:5;width:9px;height:9px;margin-left:-4.5px;pointer-events:none;display:none;filter:drop-shadow(0 0 3px var(--amber))}
+.pchint.on{display:block}
+.pchint svg{display:block;width:100%;height:100%}
 /* 판 화면: B의 유리 판 — 어두운 청록 바탕 + 민트 모눈 + 위 비스듬한 유리 반사
    세로줄 = 거리 1칸마다 (판 가로 40칸 = config.js pad.span), 가로줄 간격 = 1칸 폭(--cell, main.js 가 넣음) → 정사각형 칸 */
 .screen{position:relative;flex:1;min-height:0;border-radius:3px;overflow:hidden;touch-action:none;
@@ -210,9 +198,8 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 /* 점이 있는 세로 줄 (점선) */
 .pcol{position:absolute;z-index:1;top:0;bottom:0;width:0;border-left:1px dashed rgba(216,246,255,.3)}
 .limtag{position:absolute;bottom:2px;font:600 10px/1 var(--f-num);opacity:.85;color:var(--amber);white-space:nowrap}
-/* (2026-10-28) 터지는 거리 숫자 — 모눈 판 위 구석, 잠수함 반대쪽 (곡선은 최대 거리에서 끝나서 그 뒤가 비어 있음). 왼쪽을 보면 왼쪽 구석(.rtl)
-   (2026-10-31) ▲ 탭은 이제 모눈 판 위 「탭 줄」에만 있어서, 핀이 판 끝(거리 39)에 있어도 DIST 와 안 겹침 */
-.pdist{position:absolute;z-index:7;top:calc(var(--lane) + 3px);right:4px;display:flex;align-items:baseline;gap:3px;padding:2px 4px;pointer-events:none;
+/* (2026-10-28) 터지는 거리 숫자 — 판 위 구석, 잠수함 반대쪽 (곡선은 최대 거리에서 끝나서 그 뒤가 비어 있음). 왼쪽을 보면 왼쪽 구석(.rtl) */
+.pdist{position:absolute;z-index:7;top:3px;right:4px;display:flex;align-items:baseline;gap:3px;padding:2px 4px;pointer-events:none;
   background:rgba(1,10,16,.62);box-shadow:inset 0 0 0 1px rgba(255,207,74,.25);font:600 9px/1 var(--f-num);letter-spacing:1px;color:var(--txt2)}
 .pdist.rtl{right:auto;left:4px}
 .pdist em{font-style:normal}
@@ -457,12 +444,12 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
   .act{width:112px;gap:8px} .fire{height:56px} .fire svg{width:64px;height:24px} .skip{height:36px} .skip svg{width:28px;height:17px}
   .scale{height:18px} .scale .num{font-size:13px;top:5px} .scale .tick{height:3px} .scale .tick.major{height:5px}
   .cp{width:14px;height:14px;margin:-7px 0 0 -7px} .cp::after{inset:3px}
-  .pad{--tab-w:33px;--tab-h:17px} .pinbtn svg{width:12px;height:12px}
+  .pchint{width:11px;height:11px;margin-left:-5.5px}
   .menu{width:52px;height:52px} .menu span{width:42px;height:42px} .menu svg{width:17px;height:17px}
   .mapname{font-size:13px} .chat{font-size:15px;line-height:22px}
   .topright{top:calc(58px + var(--safe-t));gap:5px} .minimap{width:190px;padding:4px}
   .tqueue{gap:4px} .tqueue em{font-size:11px} .tq{font-size:14px;padding:3px 7px 3px 8px;gap:4px} .tq i{font-size:12px}
-  .pdist{font-size:11px;top:calc(var(--lane) + 4px);padding:2px 5px} .pdist b{font-size:15px}
+  .pdist{font-size:11px;top:4px;padding:2px 5px} .pdist b{font-size:15px}
   .mm-sub{width:8px;height:8px;margin:-4px 0 0 -4px} .mm-sub.me{width:11px;height:11px;margin:-5.5px 0 0 -5.5px}
   .mm-crate{width:6px;height:6px;margin:-3px 0 0 -3px}
   .turntag{font-size:14px;padding:5px 13px 5px 11px}
@@ -487,7 +474,6 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
   .flowm{width:80px} .flowbox b{font-size:24px} .flowsegs i{width:11px;height:4px} .rbtn{height:38px} .rbtn svg{width:22px;height:22px}
   .face{width:124px} .win > svg{width:100px;height:46px} .face .lbl{font-size:13px;line-height:14px}
   .act{width:132px;gap:9px} .fire{height:68px} .fire svg{width:76px;height:28px} .skip{height:40px} .skip svg{width:30px;height:18px}
-  .pad{--tab-w:36px;--tab-h:20px} .pinbtn svg{width:13px;height:13px}
 }
 
 /* ===== 마우스 있는 컴퓨터 (12차) =====
@@ -497,8 +483,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
    오른쪽 아래 작은 「?」 = 키보드 안내 (누르거나 ? 키 → 키 목록). 화면 맨 위는 나중에 채팅 자리라 비워 둠 */
 .keyhelp-btn,.keyhelp{display:none}
 @media (hover:hover) and (pointer:fine){
-  .joy,.pinbtn{display:none}
-  .padmain{--lane:0px}
+  .joy{display:none}
   /* 「?」: 작은 쇠 판 + 청록 글씨 */
   .keyhelp-btn{display:flex;align-items:center;justify-content:center;position:absolute;right:calc(10px + var(--safe-r));bottom:6px;width:26px;height:26px;
     background:linear-gradient(180deg,var(--m-top),var(--m-bot));clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px);
@@ -562,8 +547,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 .ks-foot b{color:var(--txt);font-weight:600}
 @media (max-width:820px){ .ks-list{grid-template-columns:1fr} }
 @media (any-pointer:coarse){
-  .joy{display:block} .pinbtn{display:flex}
-  .padmain{--lane:var(--tab-h)}
+  .joy{display:block}
 }
 
 /* 아주 큰 PC 화면: 가운데 1600×900 상자 안에 */
