@@ -27,6 +27,36 @@
   var clock0 = performance.now();
   function matchNow() { return performance.now() - clock0; }
 
+  /* ---------- (19차) 캐릭터 고르기 대기실 ----------
+     게임을 열면(그리고 「다시 하기」를 누르면) 판보다 먼저 캐릭터 고르기 화면(charsel.js)이 뜸. 그동안은 「대기실」:
+       판 시계·시간 끝·컴퓨터 상대·내 조작(이동·발사·키)이 전부 쉼 (turn.js·keys.js 가 isLobby 를 봄)
+     READY 가 확정되면 charsel.js 가 고르기 쪽지 묶음(picks)을 startMatch 에 넘김 → 그 쪽지로 새 판을 만듦 (판 시계 0 부터)
+       picks = [{ type:'pick', subId:'me', charId:'swordfish', random:false }] — 온라인 때는 서버가 모두의 쪽지를 모아 같은 판을 만듦
+     주사위 번호: 첫 판 = config.js seed (예전과 같음), 그다음 판 = 지난 판 번호 + 1 (예전 「다시 하기」와 같음) */
+  var lobby = true, matchCount = 0;
+  function isLobby() { return lobby; }
+  function startMatch(picks) {
+    lobby = false;
+    restart(matchCount++ === 0 ? C.seed : (rs.seed + 1) >>> 0, picks || []);
+  }
+  var lobbyFns = [];
+  function onLobby(fn) { lobbyFns.push(fn); }
+  function openLobby() {
+    lobby = true;
+    lobbyFns.forEach(function (fn) { fn(); });
+  }
+  // 고른 캐릭터 자료 (config.js characters). 안 골랐으면(컴퓨터 상대) null
+  function charOf(id) {
+    var s = getSub(id), list = C.characters || [];
+    for (var i = 0; s && s.charId && i < list.length; i++) if (list[i].id === s.charId) return list[i];
+    return null;
+  }
+  // 계기판 홀로그램 창 밑 이름 = 내가 고른 캐릭터 이름 (안 골랐으면 config.js character.name = 돌고래호)
+  function showMyCharName() {
+    var ch = charOf(mySubId);
+    $('faceName').textContent = ch ? ch.name : C.character.name;
+  }
+
   /* ---------- 화면 쪽 상태 (내 손에서 아직 준비 중인 것 + 보여 주기용) ----------
      궤도 판: 핀 3개 [가로(거리 칸, 잠수함 쪽 끝 = 0), 세로(판 높이 %)] (캐릭터 기본 모양에서 시작) + 거리 게이지 찬 정도 (0~1)
              + sel = ▲▼ 미세조정으로 움직일 「골라 둔 점」 번호 (0~2, 처음엔 가운데)
@@ -54,6 +84,7 @@
      canFire  = 거기에 더해 이번 차례에 아직 안 쐈음 (한 차례에 한 발)
      → 조이스틱·WASD·턴 넘기기는 canAct, 발사는 canFire 일 때만. 궤도 판 점(조준)은 상대 차례에도 미리 맞춰 둘 수 있음 */
   function isMyTurn() {
+    if (lobby) return false;          // (19차) 캐릭터 고르기 화면에선 아무 조작도 안 됨
     var me = getSub(mySubId);
     return !rs.over && rs.turn.activeId === mySubId && !!me && !me.sunk;
   }
@@ -254,7 +285,7 @@
     setEnergyGauge(me ? me.hp : C.energy);
 
     $('faceWin').innerHTML = holoSvg();
-    $('faceName').textContent = C.character.name;
+    showMyCharName();                      // (19차) 고른 캐릭터 이름 (판 전엔 돌고래호)
 
     buildPad(me ? me.facing : 'right');
   }
@@ -589,8 +620,9 @@
      seed = 새 주사위 번호 (안 주면 지금 번호 + 1 → 조류 순서가 지난 판과 달라짐) */
   var restartFns = [];
   function onRestart(fn) { restartFns.push(fn); }
-  function restart(seed) {
-    var fresh = R.createState(C, seed == null ? (rs.seed + 1) >>> 0 : seed);
+  function restart(seed, picks) {
+    // (19차) picks = 캐릭터 고르기 쪽지 묶음 (안 주면 지난 판과 같은 캐릭터)
+    var fresh = R.createState(C, seed == null ? (rs.seed + 1) >>> 0 : seed, picks == null ? rs.picks : picks);
     Object.keys(rs).forEach(function (k) { delete rs[k]; });
     Object.keys(fresh).forEach(function (k) { rs[k] = fresh[k]; });
     clock0 = performance.now();
@@ -603,6 +635,7 @@
     setCurrent(rs.current.dir, rs.current.strength);
     setMoveGauge(me ? me.move : C.movement.gaugeStart);
     setEnergyGauge(me ? me.hp : C.energy);
+    showMyCharName();
     $('timerNum').textContent = Math.ceil(rs.turn.limit / 1000);
     setClock(1);
     setDelayNum(0);                   // 새 판 = 점수 전부 0
@@ -653,6 +686,7 @@
   // 다음 단계에서 쓸 기능을 밖에서 부를 수 있게 열어 둠
   window.Game = {
     rs: rs, submit: submit, onResult: onResult,
+    isLobby: isLobby, startMatch: startMatch, openLobby: openLobby, onLobby: onLobby, charOf: charOf,   // (19차) 캐릭터 고르기
     mySubId: mySubId, isMyTurn: isMyTurn, canAct: canAct, canFire: canFire, matchNow: matchNow, restart: restart, onRestart: onRestart, markActive: markActive,
     cam: cam, state: state, getSub: getSub,
     applyCamera: applyCamera, focusOn: focusOn, focusOnSub: focusOnSub, playTurnStart: playTurnStart, setClock: setClock,

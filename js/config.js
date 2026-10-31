@@ -106,6 +106,38 @@ window.GAME_CONFIG = {
     padPoints: [ [5, 30], [14, 70], [27, 40] ]   // 돌고래호 = 중간형 (핀3 가로 27 = limit.right)
   },
 
+  // (19차, 2026-10-31) 캐릭터 고르기 화면 (charsel.js) — 게임을 열면 판보다 먼저 나옴
+  //   ★ 능력치 숫자는 전부 「임시」 (형님 결정: 해 보면서 조금씩 고침). 1 ~ 5 단계, 육각형 그림에만 쓰임
+  //   ★ 지금은 고르기만 함: 어떤 캐릭터를 골라도 판에서는 위 character(돌고래호) 숫자·궤도 판 그대로 (계기판 이름만 바뀜)
+  //     캐릭터마다 다른 체력·한계 상자·특수능력은 다음 단계에서 붙임
+  //   img = 고르기 카드 그림 (art/characters/sub-lineup-03.png 에서 잘라 냄, 모두 오른쪽을 보게)
+  characterStats: [            // 육각형 꼭짓점 순서 (맨 위부터 시계 방향)
+    { key: 'hp',      label: '체력' },
+    { key: 'atk',     label: '공격력' },
+    { key: 'blast',   label: '폭발범위' },
+    { key: 'range',   label: '사거리' },
+    { key: 'move',    label: '이동력' },
+    { key: 'special', label: '특수능력' }
+  ],
+  characters: [
+    { id: 'dolphin',   name: '돌고래호', role: '균형', img: 'img/chars/dolphin.webp',
+      stats: { hp: 3, atk: 3, blast: 3, range: 3, move: 3, special: 2 }, special: '조류 영향 절반' },
+    { id: 'swordfish', name: '황새치호', role: '저격', img: 'img/chars/swordfish.webp',
+      stats: { hp: 2, atk: 5, blast: 1, range: 5, move: 3, special: 3 }, special: '정통으로 맞히면 1.5배 크리티컬' },
+    { id: 'puffer',    name: '복어호',   role: '폭격', img: 'img/chars/puffer.webp',
+      stats: { hp: 3, atk: 2, blast: 5, range: 2, move: 2, special: 3 }, special: '가시 파편이 근처 여러 대를 동시에' },
+    { id: 'turtle',    name: '거북호',   role: '탱커', img: 'img/chars/turtle.webp',
+      stats: { hp: 5, atk: 4, blast: 3, range: 3, move: 1, special: 3 }, special: '맞은 상대를 밀어냄, 탄이 느림' },
+    { id: 'squid',     name: '오징어호', role: '기동', img: 'img/chars/squid.webp',
+      stats: { hp: 2, atk: 2, blast: 2, range: 3, move: 5, special: 4 }, special: '3발이 짧은 시차로 한 점에 모여 터짐 + 먹물로 상대 조준판 가림' },
+    { id: 'seahorse',  name: '해마호',   role: '지원', img: 'img/chars/seahorse.webp',
+      stats: { hp: 3, atk: 1, blast: 3, range: 3, move: 3, special: 5 }, special: '터진 범위 아군 회복' }
+  ],
+  charSelect: {
+    readyBeat: 0.6,      // READY 를 누른 뒤 판이 시작되기까지 (초) — READY 글씨를 볼 수 있게. 이 사이에 다시 누르면 취소
+    revealTime: 1.0      // 랜덤(?) 카드: 카드를 돌다가 멈춰 「무엇이 됐는지」 보여 주는 시간 (초). 그다음 readyBeat
+  },
+
   // 잠수함 이동 (조이스틱)
   movement: {
     speed: 130,          // 조이스틱을 끝까지 밀었을 때 빠르기 (세계 단위/초)

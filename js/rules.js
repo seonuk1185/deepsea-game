@@ -81,11 +81,16 @@
   function copy(o) { return JSON.parse(JSON.stringify(o)); }
 
   // config = window.GAME_CONFIG, seed = 주사위 시작 번호 (온라인 때는 서버가 정해서 모두에게 똑같이 나눠 줌)
-  function createState(config, seed) {
+  // (19차) picks = 캐릭터 고르기 쪽지 묶음 [{ type:'pick', subId, charId }] (없어도 됨). 고른 캐릭터는 잠수함에 이름표처럼 적어 두기만 함
+  //   (지금은 판 규칙·숫자에 안 씀 — 모두 config.js character 그대로). 온라인 때는 서버가 모두의 쪽지를 모아 같은 판을 만듦
+  function createState(config, seed, picks) {
     var C = config;
     if (seed == null) seed = C.seed || 1;
+    var pickOf = {};
+    (picks || []).forEach(function (p) { if (p && p.type === 'pick') pickOf[p.subId] = p.charId; });
     var subs = C.subs.map(function (s) {
       var o = copy(s);
+      o.charId = pickOf[s.id] || null;             // (19차) 고른 캐릭터 (컴퓨터 상대처럼 안 고른 잠수함은 null)
       o.team = s.team || s.id;                     // 팀 이름 (같은 팀끼리 한 편). 개인전이면 잠수함마다 다른 팀
       o.hp = clamp(Math.round(s.hp), 0, 100);
       o.sunk = o.hp <= 0;                          // 격침됐나
@@ -100,6 +105,7 @@
     var active = C.activeSubId || order[0];
     var state = {
       seed: seed >>> 0,
+      picks: (picks || []).slice(),               // (19차) 판을 만든 캐릭터 고르기 쪽지 (같은 seed + 같은 picks + 같은 쪽지 = 같은 판)
       rng: seed >>> 0,                             // 지금 주사위 번호 (굴릴 때마다 바뀜)
       subs: subs,
       current: { dir: C.current.dir, strength: clamp(Math.round(C.current.strength || 0), 0, 5) },
@@ -486,8 +492,8 @@
   }
 
   // 기록된 주문서를 처음부터 다시 돌리기 (같은 seed 면 똑같은 판이 나와야 함 — 확인·다시보기·서버 검증용)
-  function replay(config, seed, actions) {
-    var st = createState(config, seed);
+  function replay(config, seed, actions, picks) {   // (19차) picks = 판을 만든 캐릭터 고르기 쪽지 (rs.picks)
+    var st = createState(config, seed, picks);
     actions.forEach(function (a) { apply(st, a, config); });
     return st;
   }

@@ -571,6 +571,97 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
   .game{inset:auto;left:50%;top:50%;width:1600px;height:900px;transform:translate(-50%,-50%)}
 }
 
+/* ===== (19차) 캐릭터 고르기 화면 — 게임 위를 덮는 유리 창 (charsel.js) =====
+   왼쪽 = 카드 7장(4칸씩 2줄, 6척 + 「?」 랜덤), 오른쪽 = 능력치 육각형 + 이름·역할·특수능력 + 큰 「선택」 버튼
+   카드 = 모서리 깎인 유리 칸 + 잠수함 그림(2:1), 골라진 카드 = 앰버 테두리·이름
+   「선택」 = 건메탈 쇠 버튼 + 청록 글씨 → READY = 앰버 버튼 + 어두운 글씨 + 숨쉬는 빛, 나머지 카드는 흐리게 잠김
+   육각형 색은 디자인 토큰(--c 청록 면·선, --c-dim 고리, --amber 꼭짓점·숫자, --txt2 글씨) */
+.charsel{position:absolute;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;
+  padding:8px calc(14px + var(--safe-r)) calc(8px + var(--safe-b)) calc(14px + var(--safe-l));
+  background:radial-gradient(ellipse at 50% 30%,rgba(6,40,58,.82),rgba(1,6,12,.95) 75%);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.charsel[hidden]{display:none}
+.cs-panel{width:100%;max-width:1180px;height:100%;max-height:660px;display:flex;flex-direction:column;gap:8px}
+.cs-head{display:flex;align-items:baseline;gap:12px;padding:0 2px;flex:none}
+.cs-head b{font:700 16px/1 var(--f-num);letter-spacing:4px;color:var(--c);text-shadow:0 0 10px var(--c-glow)}
+.cs-head span{font:600 13px/1 var(--f-kr);color:var(--txt2);letter-spacing:1px}
+.cs-head small{margin-left:auto;font:600 12px/1 var(--f-kr);color:var(--amber)}
+.cs-body{flex:1;min-height:0;display:flex;gap:12px;align-items:center}
+.cs-grid{flex:1;min-width:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-content:center;gap:8px}
+.cs-card{--edge:rgba(62,232,255,.28);position:relative;display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:4px 4px 6px;text-align:center;
+  background:linear-gradient(180deg,rgba(8,30,46,.88),rgba(2,12,20,.94));clip-path:var(--chamf);
+  box-shadow:inset 0 0 0 1px var(--edge),inset 0 1px 0 rgba(255,255,255,.06);transition:transform .12s,opacity .2s,filter .2s}
+.cs-card .pic{position:relative;display:block;aspect-ratio:2/1;overflow:hidden;background:#04131d;clip-path:polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px)}
+.cs-card .pic img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.cs-card .pic::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(1,8,14,.6) 100%)}
+.cs-card b{font:700 13px/1.2 var(--f-kr);color:var(--txt);letter-spacing:.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs-card em{font:600 10px/1 var(--f-kr);font-style:normal;color:var(--txt2);letter-spacing:1px}
+.cs-card .stamp{display:none}
+.cs-card.rnd .pic{display:flex;align-items:center;justify-content:center;background:repeating-linear-gradient(135deg,rgba(62,232,255,.05) 0 6px,transparent 6px 12px),#04131d}
+.cs-card .q{font:700 30px/1 var(--f-num);color:var(--c);text-shadow:0 0 12px var(--c-glow)}
+@media (hover:hover){ .cs-card:not(:disabled):hover{--edge:rgba(62,232,255,.6)} }
+.cs-card:not(:disabled):active{transform:translateY(1px)}
+.cs-card.sel{--edge:var(--amber);box-shadow:inset 0 0 0 2px var(--edge),inset 0 0 18px rgba(255,207,74,.18)}
+.cs-card.sel b{color:var(--amber);text-shadow:0 0 8px rgba(255,207,74,.5)}
+.cs-card.lit{--edge:#fff;box-shadow:inset 0 0 0 2px var(--edge),inset 0 0 18px rgba(255,255,255,.2)}
+/* READY: 고른 카드만 또렷 + 그림 위 READY 도장, 나머지 흐리게 잠김 (랜덤 굴리는 중엔 지나가는 카드 = 흰 테두리) */
+.charsel.ready .cs-card:not(.sel):not(.lit){opacity:.35;filter:grayscale(.7)}
+.charsel.ready .cs-card.sel .stamp{display:block;position:absolute;left:50%;top:28%;transform:translate(-50%,-50%) rotate(-8deg);padding:2px 8px;
+  font:700 14px/1 var(--f-num);font-style:normal;letter-spacing:3px;color:var(--amber);background:rgba(2,10,16,.75);box-shadow:inset 0 0 0 1.5px var(--amber),0 0 10px rgba(255,207,74,.4)}
+/* 오른쪽 자세히 칸: 유리 판 + 꺾쇠. 육각형 | 글씨·버튼 */
+.cs-detail{position:relative;flex:none;width:380px;max-height:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;
+  background:linear-gradient(180deg,rgba(6,24,38,.86),rgba(2,10,18,.94));box-shadow:inset 0 0 0 1px rgba(62,232,255,.3),0 0 24px rgba(62,232,255,.08)}
+.cs-detail::before,.cs-detail::after{content:"";position:absolute;width:10px;height:10px;border:0 solid var(--c);pointer-events:none}
+.cs-detail::before{left:-1px;top:-1px;border-top-width:2px;border-left-width:2px}
+.cs-detail::after{right:-1px;bottom:-1px;border-bottom-width:2px;border-right-width:2px}
+.cs-hex{flex:none;width:200px}
+.cs-hex svg{display:block;width:100%;height:auto;overflow:visible}
+.cs-hex.pop svg .hx-data,.cs-hex.pop svg .hx-area.q{animation:hxpop .3s ease-out}
+@keyframes hxpop{from{transform:scale(.55);opacity:.2}to{transform:scale(1);opacity:1}}
+.hx-ring{fill:none;stroke:var(--c-dim);stroke-width:1}
+.hx-ring.out{stroke:var(--c);stroke-opacity:.55;fill:rgba(62,232,255,.04)}
+.hx-axis{stroke:var(--c-dim);stroke-width:1}
+.hx-area{fill:var(--c);fill-opacity:.26;stroke:var(--c);stroke-width:2;stroke-linejoin:round;filter:drop-shadow(0 0 4px var(--c-glow))}
+.hx-area.q{fill-opacity:.06;stroke-dasharray:4 4;stroke-opacity:.6;filter:none}
+.hx-dot{fill:var(--amber);filter:drop-shadow(0 0 3px var(--amber))}
+.hx-q{font:700 40px/1 var(--f-num);fill:var(--c);text-anchor:middle;dominant-baseline:central;filter:drop-shadow(0 0 6px var(--c-glow))}
+.hx-lbl{font:600 14px var(--f-kr);fill:var(--txt2)}
+.hx-val{font:700 17px var(--f-num);fill:var(--amber)}
+.charsel.empty .cs-hex{opacity:.45}
+.cs-info{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:6px}
+.cs-name{display:flex;flex-direction:column;gap:3px}
+.cs-name b{font:800 20px/1.1 var(--f-kr);color:var(--txt);letter-spacing:1px;text-shadow:0 0 10px rgba(216,246,255,.3)}
+.cs-name em{font:700 12px/1 var(--f-kr);font-style:normal;color:var(--amber);letter-spacing:1px}
+.cs-special{margin:0;font:500 12px/1.4 var(--f-kr);color:var(--txt2);word-break:keep-all}
+/* 큰 「선택」 버튼 (건메탈) → READY (앰버) */
+.cs-go{margin-top:4px;height:46px;font:800 18px/46px var(--f-kr);letter-spacing:4px;color:var(--c);text-shadow:0 0 8px var(--c-glow);
+  background:linear-gradient(180deg,var(--m-hi),var(--m-top) 40%,var(--m-bot));clip-path:var(--chamf);
+  box-shadow:inset 0 1px 0 rgba(200,235,255,.2),inset 0 -2px 0 rgba(0,0,0,.6),inset 0 0 0 1px rgba(62,232,255,.35)}
+@media (hover:hover){ .cs-go:not(:disabled):hover{color:#fff} }
+.cs-go:not(:disabled):active{transform:translateY(2px)}
+.cs-go:disabled{opacity:.4;cursor:default}
+.charsel.ready .cs-go{font:700 22px/46px var(--f-num);letter-spacing:6px;color:#1a1204;text-shadow:none;
+  background:linear-gradient(180deg,#fff2b0,var(--amber) 45%,#d99a12);box-shadow:inset 0 1px 0 rgba(255,255,255,.6),inset 0 -2px 0 rgba(0,0,0,.35);
+  animation:csready 1s ease-in-out infinite}
+@keyframes csready{0%,100%{filter:drop-shadow(0 0 2px rgba(255,207,74,.4))}50%{filter:drop-shadow(0 0 10px rgba(255,207,74,.9))}}
+/* 좁은 폰 (가로 720 미만): 자세히 칸·육각형을 조금 작게 */
+@media (max-width:719px){
+  .cs-detail{width:300px;gap:6px;padding:8px} .cs-hex{width:160px}
+  .cs-grid{gap:6px} .cs-card{padding:3px 3px 5px} .cs-card b{font-size:12px}
+  .cs-name b{font-size:17px} .cs-special{font-size:11px} .cs-go{height:40px;line-height:40px;font-size:16px}
+  .charsel.ready .cs-go{line-height:40px;font-size:19px}
+}
+/* 태블릿·PC (높이 600 이상): 크게 */
+@media (min-height:600px){
+  .charsel{padding:24px calc(32px + var(--safe-r)) calc(24px + var(--safe-b)) calc(32px + var(--safe-l))}
+  .cs-panel{gap:16px} .cs-head b{font-size:22px} .cs-head span{font-size:16px} .cs-head small{font-size:14px}
+  .cs-body{gap:20px} .cs-grid{gap:14px}
+  .cs-card{padding:6px 6px 10px;gap:4px} .cs-card b{font-size:17px} .cs-card em{font-size:12px} .cs-card .q{font-size:48px}
+  .charsel.ready .cs-card.sel .stamp{font-size:20px;padding:3px 12px}
+  .cs-detail{width:min(500px,42%);padding:18px 20px;gap:16px} .cs-hex{width:56%}
+  .cs-name b{font-size:28px} .cs-name em{font-size:15px} .cs-special{font-size:15px}
+  .cs-go{height:60px;line-height:60px;font-size:24px} .charsel.ready .cs-go{line-height:60px;font-size:30px}
+}
+
 /* ===== 세로로 들었을 때: 「돌려주세요」 ===== */
 .rotate{display:none;position:fixed;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:var(--c-bg);
   font:700 19px var(--f-kr);color:var(--txt);text-align:center;padding:24px}

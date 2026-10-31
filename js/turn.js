@@ -47,7 +47,7 @@
   function botFor(id) { return G.bots[id] || G.bots.default || null; }
   function runBot(now) {
     var t = rs.turn;
-    if (overShown || rs.over || waitingOver || G.state.busy) return;
+    if (G.isLobby() || overShown || rs.over || waitingOver || G.state.busy) return;   // (19차) 캐릭터 고르기 중엔 컴퓨터 상대도 쉼
     if (t.activeId === G.mySubId || now >= t.deadline) return;
     var bot = botFor(t.activeId);
     var out = bot && bot(rs, now, t.activeId);
@@ -84,6 +84,7 @@
   }
 
   function tick() {
+    if (G.isLobby()) return;                                      // (19차) 캐릭터 고르기 중: 시계·시간 끝 쉼 (판은 READY 뒤 시계 0 부터)
     var t = rs.turn, now = G.matchNow();
     showDelay(now);
     if (overShown) return;
@@ -164,9 +165,11 @@
     G.markActive(null);                                          // 차례 화살표도 끔
     updateLock();
   }
+  // (19차) 다시 하기 = 캐릭터 고르기 화면으로 (지난번 캐릭터가 골라진 채로 → 「선택」 한 번이면 같은 캐릭터로 새 판)
+  //   READY 가 되면 charsel.js → Game.startMatch → 새 판 (새 주사위 번호 = 지난 판 + 1, 예전 「다시 하기」와 같음)
   $('btnAgain').addEventListener('click', function () {
     overBox.hidden = true;
-    G.restart();                                                  // 새 판 (새 주사위 번호) — main.js
+    G.openLobby();
   });
   G.onRestart(function () { overShown = false; waitingOver = false; overBox.hidden = true; presentTurn(); });
 

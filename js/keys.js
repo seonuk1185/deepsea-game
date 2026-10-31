@@ -168,6 +168,7 @@
 
   document.addEventListener('keydown', function (e) {
     if (setOpen) return;                // 키 설정 화면이 열려 있으면 게임 키는 쉼 (설정 화면이 따로 받음, 아래 4번)
+    if (G.isLobby()) return;            // (19차) 캐릭터 고르기 화면에서도 게임 키는 쉼 (고르기 화면 키는 charsel.js)
     if (e.ctrlKey || e.altKey || e.metaKey || typing(e)) return;
     var act = actionOf[e.code];
     if (!act) return;
