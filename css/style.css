@@ -240,7 +240,21 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 /* 화살표 겹(#flowArrow)은 판 전체를 덮는 정사각형 → main.js setCurrent 가 통째로 돌림 (0° = 오른쪽) */
 .flowbox #flowArrow{transition:transform .3s}
 .flowbox b{position:relative;font:700 15px/1 var(--f-num);color:#fff;margin-top:1px;text-shadow:0 0 6px var(--c-glow)}
+/* (21차) 조류가 바뀌는 순간: 다이얼 번쩍 + 위에 「옛 → 새」 작은 글씨 (main.js flashCurrent, 시간 = config.js current.flashMs) */
+.flowchg{position:absolute;left:50%;top:-6px;transform:translate(-50%,-100%);white-space:nowrap;font:700 11px/1 var(--f-num);color:#fff;
+  background:rgba(3,22,32,.92);border:1px solid var(--c);border-radius:3px;padding:3px 5px;box-shadow:0 0 8px var(--c-glow);
+  opacity:0;pointer-events:none;z-index:4}
+.flowbox.chg .flowchg{animation:flowchg var(--chg-t,1.6s) ease-out forwards}
+.flowbox.chg > svg:first-of-type{animation:flowflash .35s ease-in-out 4}
+.flowbox.chg b{animation:flowflashb .35s ease-in-out 4}
+@keyframes flowchg{0%{opacity:0;transform:translate(-50%,-80%)}10%,75%{opacity:1;transform:translate(-50%,-100%)}100%{opacity:0;transform:translate(-50%,-100%)}}
+@keyframes flowflash{50%{filter:drop-shadow(0 0 6px #3ee8ff) brightness(2.2)}}
+@keyframes flowflashb{50%{color:#ffe27a;text-shadow:0 0 10px #ffd23a}}
 .flowsegs{flex:none;display:flex;gap:2px}
+/* (21차) 다음 조류: 조류 칸 바로 위에 작고 흐리게 「다음 ▲3」 (자리를 안 차지해서 다이얼 크기 그대로. 바뀌는 순간엔 「옛 → 새」가 그 위를 덮음) */
+.flownext{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);margin-bottom:4px;font:600 10px/1 var(--f-kr);color:rgba(160,240,255,.6);
+  white-space:nowrap;letter-spacing:.2px;text-shadow:0 0 3px #000,0 0 2px #000;pointer-events:none}
+.flownext[hidden]{display:none}
 .flowsegs i{width:8px;height:3px;background:rgba(62,232,255,.15)}
 .flowsegs i.on{background:var(--c);box-shadow:0 0 4px var(--c-glow)}
 /* ↺ 다시: A의 쇠 버튼 */

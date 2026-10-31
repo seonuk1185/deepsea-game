@@ -431,6 +431,43 @@
     $('flowBox').setAttribute('aria-label', '조류 ' + ({ right: '오른쪽', left: '왼쪽', up: '위', down: '아래' }[dir] || '') + ' ' + level + '단계');
   }
 
+  /* ---------- (21차) 조류가 바뀌는 순간 보여 주기 ----------
+     조류는 판 시간 30초마다 심판이 바꿈 (rules.js 「조류 바뀌는 때」). 화면은 0.1초마다 「지금 판 시계까지 때가 된 변경」을 심판에게 처리만 시킴
+       (어뢰를 보여 주는 중엔 안 시킴 → 다 터진 뒤에 다이얼이 바뀜. 바뀌는 판 시각은 쪽지 기록으로 정해져 있어서 언제 시켜도 같은 결과)
+     바뀌면: 다이얼이 잠깐 번쩍 + 다이얼 위에 「옛 → 새」(예: ▶1→◀1) 가 config.js current.flashMs 동안 보였다 사라짐
+     「언제」 바뀌는지는 안 보여 줌 (형님 결정). 다음 값만 조류 칸 위에 작고 흐리게 「다음 ▲3」 (심판이 미리 굴려 둔 rs.nextCurrent) */
+  var CUR_GLYPH = { right: '▶', left: '◀', up: '▲', down: '▼' };
+  var shownCurChanges = 0, curFlashTimer = null;
+  function curText(c) { return c && c.strength ? (CUR_GLYPH[c.dir] || '') + c.strength : '0'; }
+  function showCurrentNow() {
+    setCurrent(rs.current.dir, rs.current.strength);
+    var nx = $('flowNext'), n = rs.nextCurrent;                 // 다음 값 (어려운 모드면 없음 → 숨김)
+    nx.hidden = !n;
+    if (n) { var tx = '다음 ' + curText(n); if (nx.textContent !== tx) nx.textContent = tx; }
+    var cc = rs.currentClock;
+    if (!cc || cc.changes === shownCurChanges) return;
+    shownCurChanges = cc.changes;
+    var h = cc.history[cc.history.length - 1];
+    // 벽(±5)에 막혀 그대로인 변경(▶5 +2 → ▶5)은 번쩍 안 함 — 보이는 게 안 바뀌었으니까
+    if (h && curText(h.from) !== curText(h.to)) flashCurrent(h.from, h.to);
+  }
+  function flashCurrent(from, to) {
+    var box = $('flowBox'), tag = $('flowChg'), ms = (C.current && C.current.flashMs) || 1600;
+    tag.textContent = curText(from) + '→' + curText(to);
+    box.style.setProperty('--chg-t', ms + 'ms');
+    box.classList.remove('chg');
+    void box.offsetWidth;                                       // 번쩍 애니메이션 처음부터 다시
+    box.classList.add('chg');
+    clearTimeout(curFlashTimer);
+    curFlashTimer = setTimeout(function () { box.classList.remove('chg'); }, ms);
+  }
+  function syncCurrentView() {
+    if (lobby || state.busy) return;                            // 대기실·어뢰 재생 중엔 안 바꿈
+    R.syncCurrent(rs, Math.round(matchNow()), C);
+    showCurrentNow();
+  }
+  setInterval(syncCurrentView, 100);
+
   /* ---------- 움직일 때 쓰는 화면 바꾸기 (move.js 가 부름) ---------- */
   // 이동 게이지 (0~1): 세로 마디 막대 아래에서 위로 참 (통 안쪽 여백 2px씩 빼고). 20% 이하면 빨갛게 깜빡 (경고)
   function setMoveGauge(v) {
@@ -514,7 +551,7 @@
   //   + 내 이동 게이지 (심판이 새 차례 잠수함 게이지를 가득 채움). 카메라·번쩍·「상대 차례」 표시는 turn.js
   function onTurnChange(res) {
     markActive(res.activeId);
-    setCurrent(rs.current.dir, rs.current.strength);
+    showCurrentNow();                                           // (21차) 차례가 끝날 때 바뀌었으면 번쩍 + 「옛 → 새」
     var me = getSub(mySubId);
     if (me) setMoveGauge(me.move);
     setFireGauge(0);                                            // 지난 턴에 쏜 거리 게이지 비우기
@@ -629,7 +666,9 @@
     state.shot = null;
     buildWorld();
     var me = getSub(mySubId);
-    setCurrent(rs.current.dir, rs.current.strength);
+    shownCurChanges = 0;                                        // (21차) 새 판 = 조류 변경 횟수 0
+    clearTimeout(curFlashTimer); $('flowBox').classList.remove('chg');
+    showCurrentNow();                                           // (21차) 조류 + 다음 조류
     setMoveGauge(me ? me.move : C.movement.gaugeStart);
     setEnergyGauge(me ? me.hp : C.energy);
     showMyCharName();
@@ -689,7 +728,7 @@
     applyCamera: applyCamera, focusOn: focusOn, focusOnSub: focusOnSub, playTurnStart: playTurnStart, setClock: setClock,
     setMoveGauge: setMoveGauge, placeSub: placeSub, showFacing: showFacing,
     copyPoints: copyPoints, defaultPoints: defaultPoints, padFx: padFx, u2p: u2p, unitsToWorld: unitsToWorld, padCurveY: padCurveY, curveSpline: curveSpline, setSubHp: setSubHp, setCurrent: setCurrent, selectItem: selectItem, drawPadCurve: drawPadCurve, setFireGauge: setFireGauge, gaugeToDistance: gaugeToDistance,
-    setDelayNum: setDelayNum, fmtDelay: fmtDelay, setPadDist: setPadDist
+    setDelayNum: setDelayNum, fmtDelay: fmtDelay, setPadDist: setPadDist, syncCurrentView: syncCurrentView
   };
 
   init();

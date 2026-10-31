@@ -124,8 +124,12 @@
           <path d="M33 20l-5-3.5v7z" fill="#3ee8ff"/>
         </svg>
         <b id="flowLevel">0</b>
+        <!-- (21차) 조류가 바뀌는 순간만 잠깐 보이는 「옛 → 새」 (main.js flashCurrent). 언제 바뀔지 미리 알려 주는 표시는 없음 -->
+        <span class="flowchg" id="flowChg" aria-hidden="true"></span>
       </div>
       <div class="flowsegs" id="flowSegs"><i></i><i></i><i></i><i></i><i></i></div>
+      <!-- (21차) 다음 조류 (작고 흐리게, 「언제」는 안 보여 줌) — main.js showCurrentNow -->
+      <span class="flownext" id="flowNext" hidden></span>
       <button class="rbtn press" id="btnPadReset" aria-label="궤도 다시"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12a7 7 0 1 0 2.2-5.1" fill="none" stroke="#d8f6ff" stroke-width="2"/><path d="M3 3.5v5.5h5.5" fill="none" stroke="#d8f6ff" stroke-width="2"/></svg></button>
     </div>
 

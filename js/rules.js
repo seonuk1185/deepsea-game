@@ -46,6 +46,26 @@
        빨리 끝내면 점수가 덜 쌓여서 내 차례가 또 올 수 있음 (연속 차례)
        점수가 같으면: 지난 차례를 「더 먼저」 끝낸 잠수함 (오래 기다린 쪽) → 아직 한 번도 안 한 잠수함이 먼저 → 그래도 같으면 config.js turnOrder 순서
      안전장치: 같은 잠수함은 연속 2번까지 (config.js delay.maxConsecutive). 3번째가 될 차례면 그다음 낮은 잠수함이 함
+
+   ── 조류 바뀌는 때 (21차, 2026-10-31 형님 결정: 차례마다 새로 굴리면 너무 어려움) ──
+     조류는 「판 시간」 30초(config.js current.changeEvery)마다 바뀜. 판 시간 = 쪽지의 at (판 시계, 첫 차례 시작 = 0)
+       차례는 앞 차례가 끝난 at 에서 바로 시작하니까 at = 「차례마다 (끝 at − 시작 at) 를 더한 값」과 똑같음 (빈틈 없음)
+       심판은 performance.now 를 안 보고, 쪽지에 적힌 at 으로만 「언제 바뀌나」를 정함 → 같은 쪽지 기록이면 같은 조류
+     조준 중엔 안 바뀜: 30초가 지났는데 지금 차례 잠수함이 아직 안 쐈으면 → 쏠 때까지 그대로 (쏜 어뢰는 옛 조류로 날아감)
+       쏜 어뢰의 재생(날아가기 + 터진 자리 머묾 = end.t + torpedo.holdTime, 맵 밖이면 holdTime 의 절반)이 끝나는 판 시각 = shotDoneAt
+       바뀌는 판 시각 = max(30초 표시, shotDoneAt)  — 표시 전에 이미 쐈어도 어뢰가 아직 날고 있으면 다 터진 뒤
+       안 쏘고 차례가 끝나면(턴 넘기기·시간 끝) → 그 차례가 끝나는 at 에 바뀜 (다음 차례는 새 조류로 시작)
+     다음 표시 = 「실제로 바뀐 판 시각 + 30초」 (늦게 바뀌었으면 그만큼 뒤로 밀림 → 바뀐 뒤엔 늘 30초를 온전히 씀)
+     바뀌는 모양 = 조금씩, 방향과 세기를 따로 (형님 결정):
+       세기: 0 ~ 5 에서 1칸 또는 2칸(current.maxStep) 오르거나 내림 (같은 주사위). 0·5 에서 멈춤 (넘어가거나 돌아가지 않음)
+       방향: 그대로 / 시계 방향 90° / 반시계 방향 90° 중 하나 (확률 = current.turnChances, 기본 1/3씩). 한 번에 180° 뒤집기는 없음
+       세기 0(잔잔)에서 바뀔 때는 방향을 4가지 중 주사위로 새로 (0 = 방향이 없으니까)
+       current.stayChance 확률로 그대로 (기본 0)
+     다음 조류는 「미리」 굴려 둠 (state.nextCurrent): 판 시작 때와 바뀔 때마다 그다음 값을 바로 굴려 적어 둠
+       → 화면이 「다음 ▲3」처럼 다음 값을 보여 줄 수 있고(바뀌는 때는 안 보여 줌), 바뀔 때는 current = nextCurrent 그대로
+     첫 차례 조류는 예전처럼 주사위 (current.firstRandom). 옛 「차례마다 새로 굴림」= turn.rollCurrent: true (어려운 모드)
+     화면은 syncCurrent(상태, 판 시계) 로 「때가 지난 변경」을 처리만 시킴 — 바뀌는 판 시각은 쪽지 기록으로 정해져 있어서
+       언제 불러도(몇 번 불러도) 결과가 같음. 「언제」 바뀌는지는 화면에 안 보여 줌 (형님 결정: 다음 값만)
    ========================================================= */
 (function (root) {
   'use strict';
@@ -67,11 +87,80 @@
 
   // 조류 새로 굴리기 (방향 4가지 + 세기 0~5). (14차) 차례가 바뀔 때마다 여기서 굴림
   //   (2단계 게임규칙: 「매 턴 방향·세기 무작위」, 형님 확정) → 같은 주사위라 모든 컴퓨터에서 같은 조류
-  //   (2026-10-28 형님 결정) 첫 차례도 무작위 (주사위 번호가 다르면 첫 조류도 다름). config.js current 는 rollCurrent: false 일 때만 씀
+  //   (2026-10-28 형님 결정) 첫 차례도 무작위 (주사위 번호가 다르면 첫 조류도 다름). (21차) 그 뒤는 매 차례가 아니라 30초마다 stepCurrent (어려운 모드만 매 차례 여기서)
   var CURRENT_DIRS = ['left', 'right', 'up', 'down'];
-  function rollCurrent(state) {
-    state.current = { dir: CURRENT_DIRS[randomInt(state, 0, 3)], strength: randomInt(state, 0, 5) };
+  function rollCurrent(state, C) {
+    var K = currentRules(C || {});
+    state.current = { dir: CURRENT_DIRS[randomInt(state, 0, 3)], strength: randomInt(state, K.min, K.max) };
     return state.current;
+  }
+  // (21차) 조류 규칙 묶음 (config.js current / turn.rollCurrent)
+  //   hard = 옛 어려운 모드(차례마다 새로 굴림), every = 몇 1/1000초마다 바뀌나 (0 = 안 바뀜), stay = 그대로 머물 확률, maxStep = 한 번에 최대 몇 칸
+  function currentRules(C) {
+    var K = C.current || {}, T = C.turn || {}, TC = K.turnChances || {};
+    var min = Math.min(Math.max(Math.round(K.min != null ? K.min : 0), 0), 5);
+    var max = Math.min(Math.max(Math.round(K.max != null ? K.max : 5), Math.max(min, 1)), 5);
+    var maxStep = Math.min(Math.max(Math.round(K.maxStep != null ? K.maxStep : 2), 1), max);
+    var ch = [TC.stay != null ? +TC.stay : 1, TC.cw != null ? +TC.cw : 1, TC.ccw != null ? +TC.ccw : 1].map(function (v) { return v > 0 ? v : 0; });
+    if (!(ch[0] + ch[1] + ch[2] > 0)) ch = [1, 0, 0];
+    return { hard: T.rollCurrent === true, every: Math.max(0, Math.round((K.changeEvery != null ? K.changeEvery : 30) * 1000)),
+             stay: +K.stayChance || 0, min: min, max: max, maxStep: maxStep, turn: ch, firstRandom: K.firstRandom !== false };
+  }
+  // (21차) 조류 바꾸기 — 두 부분으로 나눠 둠 (따로 바꿔 끼우기 쉽게). 주사위 굴리는 순서: ① 방향 → ② 세기
+  //   ① 방향 규칙: 세기 0 이면 4가지 중 새로, 아니면 그대로 / 시계 90° / 반시계 90° (turnChances). 180° 는 없음
+  var CW = { up: 'right', right: 'down', down: 'left', left: 'up' }, CCW = { up: 'left', left: 'down', down: 'right', right: 'up' };
+  function currentDirStep(state, cur, K) {
+    if (!(cur.strength > 0) || !CW[cur.dir]) return CURRENT_DIRS[randomInt(state, 0, 3)];
+    var ch = K.turn, r = random(state) * (ch[0] + ch[1] + ch[2]);
+    if (r < ch[0]) return cur.dir;
+    return r < ch[0] + ch[1] ? CW[cur.dir] : CCW[cur.dir];
+  }
+  //   ② 세기 규칙: 1 ~ maxStep 칸 오르거나 내림 (크기·위아래 둘 다 주사위) → min ~ max(0 ~ 5) 에서 멈춤
+  function currentStrengthStep(state, s, K) {
+    var size = randomInt(state, 1, K.maxStep), sign = random(state) < 0.5 ? -1 : 1;
+    return Math.min(Math.max(s + sign * size, K.min), K.max);
+  }
+  // 다음 조류 미리 굴리기 (판 시작 때 + 바뀔 때마다). 시간으로 안 바뀌는 설정(어려운 모드·changeEvery 0)이면 null
+  function rollNextCurrent(state, C) {
+    var K = currentRules(C), cur = state.current;
+    if (K.hard || !K.every) { state.nextCurrent = null; return null; }
+    if (K.stay > 0 && random(state) < K.stay) state.nextCurrent = { dir: cur.dir, strength: cur.strength };
+    else {
+      var d = currentDirStep(state, cur, K);                     // ① 방향
+      state.nextCurrent = { dir: d, strength: currentStrengthStep(state, cur.strength, K) };   // ② 세기
+    }
+    return state.nextCurrent;
+  }
+  // 조류 한 번 바꾸기 (판 시각 when 에): 지금 = 미리 굴려 둔 다음 값 → 그다음 값을 또 미리 굴림
+  function stepCurrent(state, when, C) {
+    var K = currentRules(C), cc = state.currentClock, cur = state.current;
+    var from = { dir: cur.dir, strength: cur.strength };
+    var to = state.nextCurrent || rollNextCurrent(state, C) || from;
+    state.current = { dir: to.dir, strength: to.strength };
+    cc.changes++;
+    cc.lastAt = when;
+    cc.nextAt = when + K.every;                          // 다음 표시 = 실제로 바뀐 때 + 30초
+    cc.history.push({ at: when, from: from, to: { dir: to.dir, strength: to.strength } });
+    rollNextCurrent(state, C);
+    return state.current;
+  }
+  // (21차) 판 시각 at 까지 「때가 된」 조류 변경 처리. 쏘고 재생이 끝난 뒤(max(표시, shotDoneAt))에만 — 안 쐈으면 기다림
+  //   돌려줌: 이번에 바뀌었으면 마지막 변경 기록, 아니면 null. 화면이 언제 불러도 바뀌는 판 시각은 같음 (쪽지 기록으로 정해짐)
+  function syncCurrent(state, at, C) {
+    var K = currentRules(C), cc = state.currentClock, t = state.turn, out = null;
+    if (K.hard || !cc || cc.nextAt == null || at == null || !isFinite(at) || state.over) return null;
+    while (t.fired && t.shotDoneAt != null) {
+      var when = Math.max(cc.nextAt, t.shotDoneAt);
+      if (when > at) break;
+      stepCurrent(state, when, C);
+      out = cc.history[cc.history.length - 1];
+    }
+    return out;
+  }
+  // (21차) 쏜 어뢰의 화면 재생 길이 (1/1000초) = 날아간 시간 + 터진 자리 머묾 (torpedo.js 와 같은 계산)
+  function shotPlayMs(shot, C) {
+    var T = C.torpedo || {}, hold = T.holdTime || 0;
+    return Math.round((shot.end.t + (shot.end.kind === 'out' ? hold / 2 : hold)) * 1000);
   }
 
   /* =========================================================
@@ -108,17 +197,22 @@
       picks: (picks || []).slice(),               // (19차) 판을 만든 캐릭터 고르기 쪽지 (같은 seed + 같은 picks + 같은 쪽지 = 같은 판)
       rng: seed >>> 0,                             // 지금 주사위 번호 (굴릴 때마다 바뀜)
       subs: subs,
-      current: { dir: C.current.dir, strength: clamp(Math.round(C.current.strength || 0), 0, 5) },
+      current: { dir: C.current.dir, strength: clamp(Math.round(C.current.strength || 0), currentRules(C).min, currentRules(C).max) },
+      // (21차) 조류 시계: nextAt = 다음 30초 표시(판 시각), changes = 바뀐 횟수, history = 바뀐 기록 [{ at, from, to }]
+      //   어려운 모드(turn.rollCurrent: true)나 changeEvery 0 이면 nextAt = null (시간으로는 안 바뀜)
+      currentClock: { nextAt: (currentRules(C).hard || !currentRules(C).every) ? null : currentRules(C).every, changes: 0, lastAt: 0, history: [] },
       // 차례 정보 (14차): 순서표·지금 몇 번째·지금 차례 잠수함·턴 번호
       //   + 시계(limit = 한 차례 시간, startAt·deadline = 시작·마감 시각, 전부 판 시계 1/1000초) + 남은 발사 수·쐈나(쏜 시각)
       //   (2026-10-28) number = 판 시작부터 몇 번째 차례인가 (차례마다 +1), streak = 지금 잠수함이 연속 몇 번째 차례인가,
       //   extraDelay = 이번 차례에 시간 말고 더 붙을 DELAY 점수 (config.js delay.cost, 지금은 0)
       turn: { order: order, index: Math.max(0, order.indexOf(active)), activeId: active, number: 1, streak: 1,
-              limit: turnLimitMs(C), startAt: 0, deadline: 0, shotsLeft: 0, fired: false, firedAt: null, extraDelay: 0 },
+              limit: turnLimitMs(C), startAt: 0, deadline: 0, shotsLeft: 0, fired: false, firedAt: null, shotDoneAt: null, extraDelay: 0 },
       over: null,                                  // 판 끝 = { winner: 이긴 팀 이름 (모두 격침이면 null = 비김), at }
+      nextCurrent: null,                           // (21차) 다음에 바뀔 조류 (미리 굴려 둠). 어려운 모드면 null
       log: []                                      // 받은 주문서 기록 (같은 seed 로 처음부터 다시 돌리면 똑같은 판이 나옴)
     };
-    beginTurn(state, 0, C);                        // 첫 차례 시작 (판 시계 0). (2026-10-28) 첫 차례도 조류를 주사위로 굴림
+    beginTurn(state, 0, C, true);                  // 첫 차례 시작 (판 시계 0). (2026-10-28) 첫 차례도 조류를 주사위로 굴림
+    rollNextCurrent(state, C);                     // (21차) 다음 조류 미리 굴려 둠 (state.nextCurrent, 화면 「다음 ▲3」)
     return state;
   }
 
@@ -134,18 +228,20 @@
      3. 차례 진행 (14차)
         nextTurn: (2026-10-28) 「살아 있는」 잠수함 중 DELAY 가 가장 낮은 잠수함으로 넘김 (줄 서기, 맨 위 설명. 격침된 잠수함은 빠짐)
                   1:1·개인전·팀전 모두 같은 방법. 예전 「순서표대로 번갈아」는 없어짐
-        beginTurn: 차례 시작 준비 — 그 잠수함 이동 게이지 가득(2단계 규칙 「매 턴 가득 참」), 조류 새로 굴림, 마감 시각, 발사 1번
+        beginTurn: 차례 시작 준비 — 그 잠수함 이동 게이지 가득(2단계 규칙 「매 턴 가득 참」), 마감 시각, 발사 1번
+                   조류: 첫 차례만 주사위 (21차). 어려운 모드(turn.rollCurrent: true)면 예전처럼 매 차례 새로 굴림
      ========================================================= */
-  function beginTurn(state, at, C) {
-    var t = state.turn, s = getSub(state, t.activeId);
+  function beginTurn(state, at, C, first) {
+    var t = state.turn, s = getSub(state, t.activeId), K = currentRules(C);
     if (s) s.move = C.movement.gaugeStart;
-    if (!(C.turn && C.turn.rollCurrent === false)) rollCurrent(state);   // 첫 차례 포함 매 차례 (2026-10-28 형님 결정)
+    if (K.hard || (first && K.firstRandom)) rollCurrent(state, C);   // (21차) 첫 차례만 주사위 / 어려운 모드 = 매 차례 (옛 2026-10-28 규칙)
     t.limit = turnLimitMs(C);
     t.startAt = at;
     t.deadline = at + t.limit;
     t.shotsLeft = 1;                               // 한 차례에 한 발 (나중에 아이템 「2연발」이 이 숫자를 2로)
     t.fired = false;                               // 다 쐈으면 true → 그 차례엔 발사만 잠김 (이동·시계는 그대로, 2026-10-28)
     t.firedAt = null;
+    t.shotDoneAt = null;                           // (21차) 쏜 어뢰 재생이 끝나는 판 시각 (조류 변경을 여기까지 미룸)
     t.extraDelay = 0;
   }
   // 아직 시간이 남았나 (at 이 없는 쪽지는 검사 안 함 — 확인용·옛 기록)
@@ -435,6 +531,9 @@
       // 마감 시각 뒤에 온 쪽지는 거절 — 단, 마감 전에 누르기 시작한 발사는 받아 줌 (2026-10-28 형님 결정, holdInTime)
       if (!inTime(state, at) && !(action.type === 'fire' && holdInTime(state, at, holdAt, C))) return { ok: false, why: '시간 끝' };
     }
+    // (21차) 받은 쪽지의 at 까지 때가 된 조류 변경 먼저 (쏜 뒤 재생이 끝났고 30초가 지났으면). 안 쏜 차례면 아무 일 없음
+    //   (바뀌는 판 시각은 쪽지 기록으로 정해져 있어서, 거절될 쪽지에서 불려도 결과는 같음)
+    syncCurrent(state, at, C);
 
     if (action.type === 'move') {
       // 게이지가 바닥이면 돌아보기도 안 됨 (예전 조이스틱과 같음)
@@ -458,6 +557,7 @@
       t.shotsLeft--;
       t.extraDelay += +delayRules(C).cost.fire || 0;             // (나중 자리) 한 발 쏠 때 DELAY 덤 — 지금 config 값 0
       if (t.shotsLeft <= 0) { t.fired = true; t.firedAt = at != null ? at : t.startAt; }   // 다 쐈음 (시계는 계속 감)
+      t.shotDoneAt = (at != null ? at : t.startAt) + shotPlayMs(shot, C);   // (21차) 이 어뢰가 다 터지는 판 시각 → 조류 변경은 그 뒤
       // 한 팀만 남았으면(또는 모두 격침) 판 끝 — 결과는 지금 정해지고, 화면은 어뢰 재생이 끝난 뒤 보여 줌
       var teams = aliveTeams(state);
       if (teams.length <= 1) state.over = { winner: teams.length ? teams[0] : null, at: t.firedAt };
@@ -476,12 +576,19 @@
       var gained = delayPoints(used, C) + Math.round(t.extraDelay || 0);
       sub.delay += gained;
       sub.lastTurn = t.number;                     // 점수가 같을 때 「먼저 끝낸 쪽」 가리기용
+      // (21차) 조류: 끝나는 at 까지 때가 된 변경 + 30초가 지났는데 아직 안 바뀌었으면(안 쏨·어뢰가 아직 날던 중) 지금 바꿈
+      var curRes = null;
+      if (!state.over) {
+        curRes = syncCurrent(state, startAt, C);
+        var cc = state.currentClock;
+        if (!currentRules(C).hard && cc && cc.nextAt != null && startAt >= cc.nextAt) { stepCurrent(state, startAt, C); curRes = cc.history[cc.history.length - 1]; }
+      }
       var from = sub.id, next = nextTurn(state, C);   // 다음 차례 = DELAY 가장 낮은 잠수함 (연속 2번까지)
       if (next) beginTurn(state, startAt, C, false);
       res = { ok: true, type: action.type, subId: from, activeId: t.activeId, number: t.number, streak: t.streak,
               used: used, gained: gained, delay: sub.delay,
               move: next ? getSub(state, next).move : 0, current: { dir: state.current.dir, strength: state.current.strength },
-              deadline: t.deadline };
+              deadline: t.deadline, currentChange: curRes };
 
     } else {
       return { ok: false, why: '모르는 주문서: ' + action.type };
@@ -492,15 +599,16 @@
   }
 
   // 기록된 주문서를 처음부터 다시 돌리기 (같은 seed 면 똑같은 판이 나와야 함 — 확인·다시보기·서버 검증용)
-  function replay(config, seed, actions, picks) {   // (19차) picks = 판을 만든 캐릭터 고르기 쪽지 (rs.picks)
+  function replay(config, seed, actions, picks, until) {   // (19차) picks = 판을 만든 캐릭터 고르기 쪽지 (rs.picks)
     var st = createState(config, seed, picks);
     actions.forEach(function (a) { apply(st, a, config); });
+    if (until != null) syncCurrent(st, until, config);   // (21차) 마지막 쪽지 뒤 판 시각 until 까지의 조류 변경도 (화면과 맞춰 보기)
     return st;
   }
 
   var Rules = {
     createState: createState, apply: apply, replay: replay, getSub: getSub,
-    random: random, randomInt: randomInt, rollCurrent: rollCurrent,
+    random: random, randomInt: randomInt, rollCurrent: rollCurrent, syncCurrent: syncCurrent, stepCurrent: stepCurrent, currentRules: currentRules,
     nextTurn: nextTurn, beginTurn: beginTurn, aliveTeams: aliveTeams,
     delayPoints: delayPoints, queue: queue, projectedDelay: projectedDelay,
     curveSpline: curveSpline, curveY: curveY, simulateShot: simulateShot, moveStep: moveStep
