@@ -265,6 +265,9 @@
       return k ? '<p><span>' + k + '</span><em>' + r[1] + '</em></p>' : '';
     }).join('') + '<small>마우스로도 전부 됨</small>' +
       '<button class="keyhelp-set" id="btnKeySet" type="button">키 설정</button>';   // 13차: 키 바꾸는 화면 열기
+    // (20차 보강) 「턴 넘기기」 알약의 키 이름도 지금 키로 (키가 없으면 숨김. 보이는 건 마우스 PC 만 — style.css)
+    var eh = document.getElementById('endHintKey'), ec = (K.endTurn || [])[0];
+    if (eh) { eh.textContent = ec ? keyName(ec, true) : ''; eh.hidden = !ec; }
   }
   function toggleHelp() {
     if (!helpBox) return;

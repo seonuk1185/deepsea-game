@@ -148,6 +148,20 @@
       turnTag.classList.toggle('friend', !!friend);
     }
     turnTag.hidden = !other;
+    // (20차 보강) 「턴 넘기기」 알약: 내 차례 + 이번 차례에 쐈음 + 어뢰 재생(터진 자리 머묾까지) 끝남 + 판 안 끝남 일 때만
+    //   쏘기 전·어뢰가 날아가는 중·상대 차례·판 끝엔 숨김. 쏜 뒤 움직이는 동안에도 계속 보임 (그 차례가 안 끝났으니)
+    if (endHint) endHint.hidden = !(EH.show !== false && G.isMyTurn() && t.fired && !G.state.busy && !overShown && !waitingOver && !rs.over);
+  }
+  var EH = T.endHint || {}, endHint = $('btnEndHint');
+  if (endHint) {
+    if (EH.opacity != null) endHint.style.setProperty('--eh-op', EH.opacity);
+    if (EH.pulse != null) endHint.style.setProperty('--eh-pulse', EH.pulse + 's');
+    if (EH.top != null) endHint.style.setProperty('--eh-top', EH.top + '%');
+    // 누르면 ⏭ 버튼과 똑같은 길: move.js endTurn → 턴 넘기기 쪽지 (내 차례·재생 끝일 때만, 아니면 아무 일 없음)
+    endHint.addEventListener('click', function () {
+      G.endTurn();
+      updateLock();
+    });
   }
   setInterval(updateLock, 250);
 

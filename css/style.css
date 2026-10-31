@@ -403,6 +403,23 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 .turntag.friend{box-shadow:inset 0 0 0 1px rgba(62,232,255,.3),inset 2px 0 0 var(--c),0 4px 14px rgba(0,0,0,.35)}
 .turntag.friend b{color:var(--c);text-shadow:0 0 6px var(--c-glow)}
 .turntag[hidden]{display:none}
+/* (20차 보강) 「턴 넘기기」 알약 — 쏘고 어뢰가 끝난 뒤 내 차례 동안만 (turn.js). 바다 가운데 조금 위, 가로 가운데
+   흐린 유리 알약 + 청록 테두리가 천천히 숨 쉬듯 빛남. 진하기·숨 쉬는 빠르기·높이는 config.js turn.endHint (turn.js 가 --eh-* 로 넣음)
+   알약 자리만 손가락을 받고 둘레 바다는 그대로 끌림 (hud 는 pointer-events:none, 자식만 받음) */
+.endhint{--eh-op:.72;--eh-pulse:2.4s;--eh-top:30%;position:absolute;left:50%;top:var(--eh-top);transform:translate(-50%,-50%);z-index:4;
+  display:flex;align-items:center;gap:7px;padding:6px 14px 6px 16px;border-radius:999px;white-space:nowrap;
+  background:rgba(3,20,30,.42);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+  font:600 13px/1 var(--f-kr);color:#d8f6ff;letter-spacing:.5px;text-shadow:0 0 6px rgba(62,232,255,.45);
+  opacity:var(--eh-op);animation:ehPulse var(--eh-pulse) ease-in-out infinite}
+.endhint[hidden]{display:none}
+.endhint svg{width:20px;height:12px;filter:drop-shadow(0 0 3px var(--c))}
+.endhint kbd{display:none;padding:2px 5px;border-radius:3px;font:600 10px/1 var(--f-num);letter-spacing:.5px;color:var(--txt2);
+  box-shadow:inset 0 0 0 1px rgba(216,246,255,.3)}
+.endhint:active{transform:translate(-50%,-50%) scale(.96)}
+@keyframes ehPulse{
+  0%,100%{box-shadow:inset 0 0 0 1px rgba(62,232,255,.35),0 0 6px rgba(62,232,255,.12)}
+  50%{box-shadow:inset 0 0 0 1px rgba(62,232,255,.8),0 0 16px rgba(62,232,255,.45)}}
+@media (prefers-reduced-motion:reduce){ .endhint{animation:none;box-shadow:inset 0 0 0 1px rgba(62,232,255,.6)} }
 
 /* (14차) 판 끝: 승리 / 패배 / 비김 + 다시 하기 — 유리 판 + 모서리 꺾쇠 + 빛나는 큰 글씨 */
 .over{position:absolute;inset:0;z-index:15;display:flex;align-items:center;justify-content:center;background:rgba(1,6,12,.62)}
@@ -484,6 +501,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
 .keyhelp-btn,.keyhelp{display:none}
 @media (hover:hover) and (pointer:fine){
   .joy{display:none}
+  .endhint kbd{display:inline-block} .endhint kbd[hidden]{display:none}   /* (20차 보강) 턴 넘기기 알약에 키 이름 (기본 Tab) */
   /* 「?」: 작은 쇠 판 + 청록 글씨 */
   .keyhelp-btn{display:flex;align-items:center;justify-content:center;position:absolute;right:calc(10px + var(--safe-r));bottom:6px;width:26px;height:26px;
     background:linear-gradient(180deg,var(--m-top),var(--m-bot));clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px);

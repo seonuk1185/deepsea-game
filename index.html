@@ -42,6 +42,9 @@
     </div>
     <!-- (14차) 상대 차례일 때만 보이는 작은 표시 (turn.js). 화면 위 가운데는 채팅 자리라 오른쪽 아래에 -->
     <div class="turntag" id="turnTag" hidden></div>
+    <!-- (20차 보강) 쏘고 어뢰가 다 터진 뒤 내 차례 동안만 보이는 흐린 「턴 넘기기」 알약 — 바다 가운데 조금 위 (turn.js). 누르면 ⏭ 버튼과 똑같음.
+         PC 는 키 이름(kbd, keys.js 가 지금 키로 채움)도 같이 -->
+    <button class="endhint press" id="btnEndHint" type="button" hidden aria-label="턴 넘기기"><span>턴 넘기기</span><svg viewBox="0 0 22 13" aria-hidden="true"><path d="M1 1l8 5.5L1 12zM10 1l8 5.5-8 5.5z" fill="#3ee8ff"/><rect x="18.5" y="1" width="2.5" height="11" fill="#3ee8ff"/></svg><kbd id="endHintKey">Tab</kbd></button>
     <div class="chat" id="chat" hidden><p><b>상어대장</b>그 각도로 맞출 수 있겠어? ㅋㅋ</p></div>
     <!-- 아이템 4칸 (계기판 시간·DELAY 칸 바로 위 가로 한 줄) — main.js가 채움 -->
     <div class="items" id="items"></div>
