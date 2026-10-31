@@ -94,18 +94,13 @@
 
     <!-- C. 궤도 판 (초록 점 화면) + 판 안 맨 아래에 겹친 거리 눈금 — 내용은 main.js가 그림, 점 끌기는 pad.js
          계기판 가운데만 위로 솟은 칸 (양옆보다 --dash-rise 만큼 높음 → 판 세로가 넓어짐)
-         오른쪽 옆 좁은 띠 = ▲▼ 미세조정 (골라 둔 점을 한 칸씩. 잠수함이 돌아봐도 늘 오른쪽 = 엄지 자리) -->
+         (2026-10-31) 점마다 ▲(판 위 가장자리)·▼(판 아래 가장자리) 버튼은 pad.js 가 .padmain 안에 만듦 (예전 오른쪽 옆 ▲▼ 띠·「핀N」은 없앰) -->
     <div class="mod pad">
       <div class="padmain">
         <div class="screen" id="padScreen"></div>
         <div class="scale" id="padScale"></div>
         <!-- (2026-10-28) 터지는 거리 숫자 (예전엔 DLY 칸에 있었음): 판 위 구석, 잠수함 반대쪽(곡선이 끝난 뒤 빈 자리). 꾹 누르는 동안 올라감 (fire.js) -->
         <span class="pdist" id="padDist" aria-label="터지는 거리"><em>DIST</em><b id="padDistNum">--</b></span>
-      </div>
-      <div class="nudge" aria-label="점 미세조정">
-        <button class="nbtn press" id="btnNudgeUp" aria-label="고른 점 위로 한 칸"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2l5 7H1z" fill="#ffcf4a"/></svg></button>
-        <span class="ntag" id="nudgeTag">핀2</span>
-        <button class="nbtn dn press" id="btnNudgeDown" aria-label="고른 점 아래로 한 칸"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 10L1 3h10z" fill="#ffcf4a"/></svg></button>
       </div>
     </div>
 

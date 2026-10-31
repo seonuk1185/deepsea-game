@@ -359,8 +359,11 @@
       el.style.top = p[1] + '%';
       el.classList.toggle('sel', +el.getAttribute('data-i') === state.pad.sel);   // 골라 둔 점 = 노란 빛 테두리
     });
-    var tag = $('nudgeTag');                                     // ▲▼ 사이 작은 글씨 「핀2」 (조준핀 = 궤도 점)
-    if (tag) tag.textContent = '핀' + (state.pad.sel + 1);
+    // (2026-10-31) 점마다 ▲▼ 버튼(pad.js 가 만듦): 가로 자리 = 그 점 가로 자리 (판 끝에선 버튼이 판 밖으로 안 나가게 css 가 막음)
+    Array.prototype.forEach.call(document.querySelectorAll('.pinbtn'), function (el) {
+      var p = pts[+el.getAttribute('data-i')];
+      if (p) el.style.setProperty('--px', padFx(p[0]) + '%');
+    });
   }
 
   // 거리 게이지 (0~1, 1 = 거리 한계선까지 꽉). 흰 표시 = 멈춘 자리

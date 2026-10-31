@@ -4,8 +4,10 @@
       (가로 자리는 캐릭터마다 고정, 세로는 노란 상자 위·아래 변 안에서만.
        곡선은 점 3개를 정확히 지나고, 상자 밖으로 나갈 수 있음)
    2) 점을 누르면(끌기 시작해도) 그 점이 「골라짐」 → 노랗게 빛남. 처음엔 가운데 점(점2)
-   3) 판 오른쪽 옆 ▲ / ▼ : 골라 둔 점을 한 번에 딱 한 칸(config.js pad.nudgeStep)씩 위·아래로.
+   3) (2026-10-31) 점마다 ▲ / ▼ 버튼: 판 위 가장자리에 ▲ 3개, 아래 가장자리에 ▼ 3개 — 각각 그 점 바로 위·아래 (가로 자리 = 점 가로 자리).
+      누르면 그 점이 골라지고 딱 한 칸(config.js pad.nudgeStep)씩 위·아래로.
       꾹 누르고 있으면 0.35초 뒤부터 0.08초마다 계속 움직임. 노란 상자 위·아래 변에서 멈춤
+      (예전 판 오른쪽 옆 ▲▼ 띠 + 「핀N」 글씨는 이걸로 바뀌어서 없앰. 버튼 자리는 main.js drawPadCurve 가 점과 같이 넣음)
    4) ↺(다시) 버튼: 점을 캐릭터 기본 모양으로 되돌림 (골라 둔 점은 그대로)
    조이스틱을 누른 채 다른 손가락으로 점을 끌어도 됨. 판 위에서 끌어도 바다 화면은 안 움직임
    (12차) 키보드도 같은 한 칸 계산(nudge)을 씀: Ins/Del·Home/End·PgUp/PgDn = 점마다 따로 ▲▼(꾹 누르면 계속, 키보드는 더 빠름), F1 = ↺
@@ -81,7 +83,7 @@
     G.drawPadCurve();
   }
 
-  /* ---------- ▲▼ 미세조정: 골라 둔 점을 한 칸씩 ---------- */
+  /* ---------- ▲▼ 미세조정: 점을 한 칸씩 ---------- */
   // dir = -1 (▲ 위로) / +1 (▼ 아래로). 화면 위쪽이 세로 0% 라서 위로 = 숫자 작아짐
   //   i = 몇 번째 점 (안 주면 골라 둔 점 — ▲▼ 버튼)
   function nudge(dir, i) {
@@ -92,18 +94,20 @@
     G.drawPadCurve();
   }
 
-  // ▲ 또는 ▼ 하나 = 「꾹 누르기」 담당 하나. start(누른 것) / stop(누른 것) 은 버튼(손가락·마우스)과 키보드(Q·E)가 같이 씀
+  // ▲ 또는 ▼ 하나 = 「꾹 누르기」 담당 하나. start(누른 것) / stop(누른 것) 은 버튼(손가락·마우스)과 키보드가 같이 씀
   //   누른 것 = 손가락 번호, 키보드는 'key'
-  function setupNudge(btn, dir) {
+  //   pin = 몇 번째 점 (점마다 버튼). 안 주면 골라 둔 점 (키보드 예비 키 nudgeUp·nudgeDown — 화면 버튼 없음, btn = null)
+  function setupNudge(btn, dir, pin) {
     var hold = null;   // { id: 누른 것, t: 타이머 }
     function start(id) {
       if (hold) return false;
-      btn.classList.add('held');                                      // 키로 눌러도 버튼이 눌린 모양
+      if (btn) btn.classList.add('held');                             // 키로 눌러도 버튼이 눌린 모양
+      if (pin !== undefined) selectPin(pin);                          // 점 버튼 = 그 점이 골라짐 (앰버 빛)
       hold = { id: id, t: 0 };
-      nudge(dir);                                                     // 누르는 순간 한 칸
+      nudge(dir, pin);                                                // 누르는 순간 한 칸
       hold.t = setTimeout(function () {                               // 꾹 누르고 있으면 계속
         if (!hold) return;
-        hold.t = setInterval(function () { nudge(dir); }, C.pad.nudgeRepeat);
+        hold.t = setInterval(function () { nudge(dir, pin); }, C.pad.nudgeRepeat);
       }, C.pad.nudgeDelay);
       return true;
     }
@@ -111,8 +115,9 @@
       if (!hold || hold.id !== id) return;
       clearTimeout(hold.t); clearInterval(hold.t);
       hold = null;
-      btn.classList.remove('held');
+      if (btn) btn.classList.remove('held');
     }
+    if (!btn) return { start: start, stop: stop };
     btn.addEventListener('pointerdown', function (e) {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       e.preventDefault();
@@ -124,14 +129,33 @@
     btn.addEventListener('lostpointercapture', stopPointer);
     return { start: start, stop: stop };
   }
-  var nudgeUp = setupNudge(document.getElementById('btnNudgeUp'), -1);
-  var nudgeDown = setupNudge(document.getElementById('btnNudgeDown'), 1);
+  // 키보드 예비 키(고른 점 ▲▼)용 — 화면 버튼은 없음
+  var nudgeUp = setupNudge(null, -1);
+  var nudgeDown = setupNudge(null, 1);
+
+  // (2026-10-31) 점마다 ▲(판 위 가장자리) / ▼(판 아래 가장자리) 버튼 만들기. 점 개수만큼 (지금 3개)
+  //   가로 자리는 main.js drawPadCurve 가 점 자리(padFx)대로 넣음 → 캐릭터마다 핀 가로가 달라도, 잠수함이 왼쪽을 봐도 늘 그 점 위·아래
+  var padMain = screen.parentNode;
+  var UP_SVG = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2l5 7H1z" fill="#ffcf4a"/></svg>';
+  var DN_SVG = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 10L1 3h10z" fill="#ffcf4a"/></svg>';
+  G.state.pad.points.forEach(function (p, i) {
+    [[-1, 'up', UP_SVG, '위로'], [1, 'dn', DN_SVG, '아래로']].forEach(function (d) {
+      var b = document.createElement('button');
+      b.className = 'pinbtn ' + d[1] + ' press';
+      b.setAttribute('data-i', i);
+      b.setAttribute('aria-label', '핀' + (i + 1) + ' ' + d[3] + ' 한 칸');
+      b.innerHTML = d[2];
+      padMain.appendChild(b);
+      setupNudge(b, d[0], i);
+    });
+  });
+  G.drawPadCurve();   // 방금 만든 버튼을 점 자리로
 
   /* ---------- (12차 보강) PC 점 키: 점마다 따로 꾹 누르기 ----------
      Insert·Home·PageUp / Delete·End·PageDown 은 「그 점」을 바로 움직임 (골라 둔 점이 아니라)
      → 점마다 꾹 누르기 담당이 따로 있어서, 점1 ▲ 와 점3 ▼ 를 같이 누르면 둘 다 동시에 움직이고, 하나를 떼도 다른 하나는 계속
      빠르기는 키보드 전용 값(config.js pad.keyRepeatDelay·keyRepeatEvery). 한 번 누를 때 한 칸(nudgeStep)은 버튼과 같음
-     폰 ▲▼ 버튼은 위 setupNudge 그대로 (골라 둔 점, 0.35초 뒤 0.08초마다) */
+     폰 점마다 ▲▼ 버튼은 위 setupNudge 그대로 (그 점, 0.35초 뒤 0.08초마다) */
   var pinHolds = [];   // [몇 번째 점] = { dir: -1/+1, t: 타이머 }
   // first = true 면 누르는 순간 한 칸 움직이고 시작, false 면 한 칸 없이 기다렸다가 계속 (같은 점 반대 키를 뗐을 때 남은 쪽 이어가기용)
   function pinHoldStart(i, dir, first) {
